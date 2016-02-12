@@ -14,7 +14,7 @@ from optparse import OptionParser
 	8. also is a bit dodgy for the time being just do local custom paths(12) for now
 	add command line option parser but if none just uses original program
 """
-# just an example for integrating a command line option parser
+# just a reminder for how to use option parser(example from another project)
 """
  parser = OptionParser(usage='usage: %prog [options] <ssh-server>[:<server-port>]',
 						  version='%prog 1.0', description=HELP)
