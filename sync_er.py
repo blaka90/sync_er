@@ -7,10 +7,16 @@ import inspect
 from optparse import OptionParser
 
 
+'''---------------THIS WILL NOT WORK ON ANY OTHER MACHINES BAR MINE, NOR IS IT MEANT TOO----------- '''
+
+
 """
 	need to put all documentation in!
+
 	14. is a working progress(soon as i bastard find .ssh/authorized_keys on ipad)
+
 	8. also is a bit dodgy for the time being just do local custom paths(12) for now
+
 	add command line option parser but if none just uses original program
 """
 
@@ -37,14 +43,14 @@ from optparse import OptionParser
 
 def main():
 	options, server, remote = parse_options()
-
 """
 
-
+# should probably use threadings Pool class but until then this will do
 threads = ["thread1", "thread2", "thread3", "thread4", "thread5"]
 pool = []
 
 
+# the class for each threaded sync
 class Sync(threading.Thread):
 
 	def __init__(self, user_source, user_destination, destination_ip, options):
@@ -63,13 +69,14 @@ class Sync(threading.Thread):
 			self.options = "-Paiurv"
 		elif options == "c":  # compress
 			self.options = "-Paiurvz"
-		elif options == "del":
+		elif options == "del":  # delete outdated
 			self.options = "-Paiurv --delete"
 		else:
 			self.options = options
 		self.what_to_sync()
 		threading.Thread.__init__(self, target=self.sync_that_shit)
 
+	# runs after each object is created
 	def what_to_sync(self):
 		print "What would you like to sync?" + "\n"
 		print "1.  Full Hard Drive"
@@ -91,6 +98,7 @@ class Sync(threading.Thread):
 		self.sync_sort_source(self.ans)
 		self.sync_sort_dest(self.ans)
 
+	# sets the source destination of the sync
 	def sync_sort_source(self, folder):
 		if self.source == "blaka":
 			self.src_hdd = "MacBookHDD"
@@ -129,6 +137,7 @@ class Sync(threading.Thread):
 		elif folder == "15":
 			exit(0)
 
+	# sets the proposed destination of the sync
 	def sync_sort_dest(self, folder):
 		if self.destination == "blaka":
 			self.dest_hdd = "MacBookHDD"
@@ -166,6 +175,7 @@ class Sync(threading.Thread):
 		elif folder == "15":
 			exit(0)
 
+	# depending on what options are used, sets the right command
 	def sync_that_shit(self):
 		global output
 		try:
@@ -182,6 +192,7 @@ class Sync(threading.Thread):
 
 			output = p.communicate()[0]
 			exitcode = p.returncode
+			# used to release output so their isn't output showing when user input is happening
 			if exitcode == 0:
 				self.release = True
 		except Exception as e:
@@ -190,39 +201,41 @@ class Sync(threading.Thread):
 			# main()
 
 
-def main():
+def main():  # the main loop
 	user_source = raw_input("source username: ")
 	user_dest = raw_input("destination username: ")
 	dest_ip = raw_input("destination ip(leave blank for local): ")
 	opts = raw_input("options:\n(d)efault\n(c)ompress\n(del)ete (only deletes what is already deleted from source "
 					 "folder)\nenter manually\n> ")
+	# the programs main loop for initiating a sync thread
 	while True:
 		for thread in threads:
-			if inspect.isclass(thread):
-				poodex = int(pool.index(thread))
-				pool[poodex].join()
+			if inspect.isclass(thread):  # my version of threading.Pool
+				poodex = int(pool.index(thread))  # (max 5)
+				pool[poodex].join()  # it's currently FILO, should maybe change to FIFO
 				continue
 			else:
+				# the actual object creation
 				thread = Sync(user_source, user_dest, dest_ip, opts)
 				thread.start()
-				pool.append(thread)
+				pool.append(thread)  # add it to the pool
 				print "\n" + "...Syncing..." + "\n"
 				print "\n" + "Would you like to sync any more?"
-				sync = raw_input("y/n: ").lower()
+				sync = raw_input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
 				if sync == "y":
 					print "Use same source and destination?"
 					s_d = raw_input("y/n: ").lower()
-					if s_d == "y":
+					if s_d == "y":  # releases the output so far and makes a new thread sync object
 						if thread.release:
 							print output
 						continue
-					elif s_d == "n":
+					elif s_d == "n":  # holds the output and starts the main loop over
 						for th in pool:
 							th.join()
 						main()
 				else:
 					print "\n"
-					for th in pool:
+					for th in pool:  # releases all the outputs for each sync then exits
 						if th.release:
 							print output
 						th.join()
@@ -231,6 +244,7 @@ def main():
 
 if __name__ == "__main__":
 	os.system("clear")
+	# welcome banner
 	print "-_-" * 25
 	print " " * 25 + "WELCOME TO SYNC_ER"
 	print "_-_" * 25 + "\n"
