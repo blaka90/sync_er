@@ -6,7 +6,6 @@ import threading
 import inspect
 from optparse import OptionParser
 
-# rsync -Paiurv /Users/blaka7/Desktop/test_rsync blaka@192.168.0.5:/Users/blaka/Desktop/
 
 """
 	need to put all documentation in!
@@ -14,6 +13,8 @@ from optparse import OptionParser
 	8. also is a bit dodgy for the time being just do local custom paths(12) for now
 	add command line option parser but if none just uses original program
 """
+
+
 # just a reminder for how to use option parser(example from another project)
 """
  parser = OptionParser(usage='usage: %prog [options] <ssh-server>[:<server-port>]',
@@ -38,6 +39,8 @@ def main():
 	options, server, remote = parse_options()
 
 """
+
+
 threads = ["thread1", "thread2", "thread3", "thread4", "thread5"]
 pool = []
 
