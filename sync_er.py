@@ -245,7 +245,7 @@ def main():  # the main loop
 if __name__ == "__main__":
 	os.system("clear")
 	# welcome banner
-	print "-_-" * 25
-	print " " * 25 + "WELCOME TO SYNC_ER"
-	print "_-_" * 25 + "\n"
+	print "-_-" * 26
+	print " " * 28 + "WELCOME TO SYNC_ER"
+	print "_-_" * 26 + "\n"
 	main()
