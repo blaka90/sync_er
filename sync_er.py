@@ -246,6 +246,6 @@ if __name__ == "__main__":
 	os.system("clear")
 	# welcome banner
 	print "-_-" * 26
-	print " " * 28 + "WELCOME TO SYNC_ER"
+	print " " * 35 + "SYNC_ER"
 	print "_-_" * 26 + "\n"
 	main()
