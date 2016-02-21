@@ -66,6 +66,7 @@ class Sync(threading.Thread):
 		self.dest_hdd = ""
 		self.header = 0
 		self.output = ""
+		self.errors = None
 		self.release = False
 		if options == "d":  # default
 			self.options = "-Paiurv"
@@ -85,8 +86,12 @@ class Sync(threading.Thread):
 			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents", 10: "Bash Scripts", 11: "Downloads",
 			12: "Custom Paths", 13: "Custom Remote Paths", 14: "Ipad MovieBox"}
 		print "#" * 75
-		print " " * 15 + "Showing output for " + headers[self.header] + " sync\n"
+		print " " * 15 + "Showing output for " + headers[self.header] + " sync"
 		print "#" * 75
+		print self.output
+		if len(self.errors) != 0:
+			print "~" * 10 + "ERRORS" + "~" * 10
+			print str(self.errors) + "\n"
 
 	# runs after each object is created
 	def what_to_sync(self):
@@ -206,27 +211,23 @@ class Sync(threading.Thread):
 			ipad = self.destination + "@" + self.destination_ip + ":" + self.dest_folder
 			if self.ans == ("8" or "12"):
 				p = subprocess.Popen([self.command, self.options, self.source_folder, self.dest_folder],
-									 stdout=subprocess.PIPE)
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			elif self.ans == "14":
-				p = subprocess.Popen(["scp", ipad, self.source_folder], stdout=subprocess.PIPE)
+				p = subprocess.Popen(["scp", ipad, self.source_folder], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			elif self.ans == "5":
 				exclude = "--exclude=InfiniteSkills - Learning Python Programming/"
 				p = subprocess.Popen([self.command, self.options, exclude, self.source_folder, destination],
-									 stdout=subprocess.PIPE)
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			else:
 				p = subprocess.Popen([self.command, self.options, self.source_folder, destination],
-									 stdout=subprocess.PIPE)
+									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-			p.wait()
-			self.output = p.communicate()[0]
-			exitcode = p.returncode
-			# used to release output so their isn't output showing when user input is happening
-			if exitcode == 0:
-				self.release = True
+			self.output, self.errors = p.communicate()
+			self.release = True
 		except Exception as e:
 			print "Ooops something went wrong there..." + "\n"
 			print str(e) + "\n"
-			# main()
+			exit(1)
 
 
 def main():  # the main loop
@@ -241,7 +242,7 @@ def main():  # the main loop
 		for thread in threads:
 			if inspect.isclass(thread):  # my version of threading.Pool
 				poodex = int(pool.index(thread))  # (max 5)
-				pool[poodex].join()  
+				pool[poodex].join()
 				continue
 			else:
 				# the actual object creation
@@ -266,7 +267,6 @@ def main():  # the main loop
 					for th in pool:  # releases all the outputs for each sync then exits
 						if th.release:
 							th.print_sync()
-							print th.output
 						th.join()
 					exit(0)
 
