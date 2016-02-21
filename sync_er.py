@@ -64,6 +64,7 @@ class Sync(threading.Thread):
 		self.ans = ""
 		self.src_hdd = ""
 		self.dest_hdd = ""
+		self.header = 0
 		self.release = False
 		if options == "d":  # default
 			self.options = "-Paiurv"
@@ -75,6 +76,14 @@ class Sync(threading.Thread):
 			self.options = options
 		self.what_to_sync()
 		threading.Thread.__init__(self, target=self.sync_that_shit)
+
+	# used to print header for what output is showing
+	def print_sync(self):
+		headers = {
+			1: "Full Hard Drive", 2: "Books", 3: "Iso's and Dmg's", 4: "VM's", 5: "Programming", 6: "Games",
+			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents", 10: "Bash Scripts", 11: "Downloads",
+			12: "Custom Paths", 13: "Custom Remote Paths", 14: "Ipad MovieBox"}
+		print "Showing output for " + headers[self.header] + " sync\n"
 
 	# runs after each object is created
 	def what_to_sync(self):
@@ -95,84 +104,95 @@ class Sync(threading.Thread):
 		print "14. Ipad MovieBox"
 		print "15. Exit"
 		self.ans = raw_input(">")
-		self.sync_sort_source(self.ans)
-		self.sync_sort_dest(self.ans)
+		self.sync_sort(self.ans)
 
 	# sets the source destination of the sync
-	def sync_sort_source(self, folder):
+	def sync_sort(self, folder):
 		if self.source == "blaka":
 			self.src_hdd = "MacBookHDD"
 		else:
 			self.src_hdd = "MacMiniHDD"
 
-		if folder == "1":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/"
-		elif folder == ("2" or "8"):
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/Books/"
-		elif folder == "3":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/iso n dmgs/"
-			print "\n" + "Please wait...this could take a while"
-		elif folder == "4":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/VMS/"
-			print "\n" + "Please wait...this could take a while"
-		elif folder == "5":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/programming/"
-		elif folder == "6":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/GAMES/"
-			print "\n" + "Please wait...this could take a while"
-		elif folder == "7":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/pics n videos/"
-		elif folder == "9":
-			self.source_folder = "/Users/" + self.source + "/Documents/"
-		elif folder == "10":
-			self.source_folder = "/Users/" + self.source + "/Desktop/bash scripts/"
-		elif folder == "11":
-			self.source_folder = "/Users/" + self.source + "/Downloads/"
-		elif folder == "12":
-			self.source_folder = raw_input("Source Folder: ")
-		elif folder == "13":
-			self.source_folder = raw_input("Source Folder(R): ")
-		elif folder == "14":
-			self.source_folder = "/Users/" + self.source + "/Desktop/films/"
-		elif folder == "15":
-			exit(0)
-
-	# sets the proposed destination of the sync
-	def sync_sort_dest(self, folder):
 		if self.destination == "blaka":
 			self.dest_hdd = "MacBookHDD"
 		else:
 			self.dest_hdd = "MacMiniHDD"
 
 		if folder == "1":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/"
+			self.header = 1
+
 		elif folder == "2":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/Books/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/Books/"
+			self.header = 2
+
 		elif folder == "3":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/iso n dmgs/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/iso\ n\ dmgs/"
+			self.header = 3
+			print "\n" + "Please wait...this could take a while"
+
 		elif folder == "4":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/VMS/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/VMS/"
+			self.header = 4
+			print "\n" + "Please wait...this could take a while"
+
 		elif folder == "5":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/programming/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/programming/"
+			self.header = 5
+
 		elif folder == "6":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/GAMES/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/GAMES/"
+			self.header = 6
+			print "\n" + "Please wait...this could take a while"
+
 		elif folder == "7":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/pics n videos/"
 			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/pics\ n\ videos/"
+			self.header = 7
+
 		elif folder == "8":
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/Books/"
 			self.dest_folder = "/Users/" + self.destination + "/Google\ Drive/Books/"
+			self.header = 8
+
 		elif folder == "9":
+			self.source_folder = "/Users/" + self.source + "/Documents/"
 			self.dest_folder = "/Users/" + self.destination + "/Documents/"
+			self.header = 9
+
 		elif folder == "10":
+			self.source_folder = "/Users/" + self.source + "/Desktop/bash scripts/"
 			self.dest_folder = "/Users/" + self.destination + "/Desktop/bash\ scripts/"
+			self.header = 10
+
 		elif folder == "11":
+			self.source_folder = "/Users/" + self.source + "/Downloads/"
 			self.dest_folder = "/Users/" + self.destination + "/Downloads/"
+			self.header = 11
+
 		elif folder == "12":
+			self.source_folder = raw_input("Source Folder: ")
 			self.dest_folder = raw_input("Destination Folder: ")
+			self.header = 12
+
 		elif folder == "13":
+			self.source_folder = raw_input("Source Folder(R): ")
 			self.dest_folder = raw_input("Destination Folder(R): ")
+			self.header = 13
+
 		elif folder == "14":
+			self.source_folder = "/Users/" + self.source + "/Desktop/films/"
 			self.dest_folder = "/User/Library/Artworks/*"
+			self.header = 14
+
 		elif folder == "15":
+			print "#" * 25 + "EXITING" + "#" * 25
 			exit(0)
 
 	# depending on what options are used, sets the right command
@@ -186,14 +206,19 @@ class Sync(threading.Thread):
 									 stdout=subprocess.PIPE)
 			elif self.ans == "14":
 				p = subprocess.Popen(["scp", ipad, self.source_folder], stdout=subprocess.PIPE)
+			elif self.ans == "5":
+				exclude = "--exclude=InfiniteSkills - Learning Python Programming/"
+				p = subprocess.Popen([self.command, self.options, exclude, self.source_folder, destination],
+									 stdout=subprocess.PIPE)
 			else:
 				p = subprocess.Popen([self.command, self.options, self.source_folder, destination],
 									 stdout=subprocess.PIPE)
 
+			p.wait()
 			output = p.communicate()[0]
 			exitcode = p.returncode
 			# used to release output so their isn't output showing when user input is happening
-			if exitcode == 0:
+			if exitcode != 0:
 				self.release = True
 		except Exception as e:
 			print "Ooops something went wrong there..." + "\n"
@@ -207,6 +232,7 @@ def main():  # the main loop
 	dest_ip = raw_input("destination ip(leave blank for local): ")
 	opts = raw_input("options:\n(d)efault\n(c)ompress\n(del)ete (only deletes what is already deleted from source "
 					 "folder)\nenter manually\n> ")
+	print "\n"
 	# the programs main loop for initiating a sync thread
 	while True:
 		for thread in threads:
@@ -237,6 +263,7 @@ def main():  # the main loop
 					print "\n"
 					for th in pool:  # releases all the outputs for each sync then exits
 						if th.release:
+							th.print_sync()
 							print output
 						th.join()
 					exit(0)
