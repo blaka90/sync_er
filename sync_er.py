@@ -65,6 +65,7 @@ class Sync(threading.Thread):
 		self.src_hdd = ""
 		self.dest_hdd = ""
 		self.header = 0
+		self.output = ""
 		self.release = False
 		if options == "d":  # default
 			self.options = "-Paiurv"
@@ -83,7 +84,9 @@ class Sync(threading.Thread):
 			1: "Full Hard Drive", 2: "Books", 3: "Iso's and Dmg's", 4: "VM's", 5: "Programming", 6: "Games",
 			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents", 10: "Bash Scripts", 11: "Downloads",
 			12: "Custom Paths", 13: "Custom Remote Paths", 14: "Ipad MovieBox"}
-		print "Showing output for " + headers[self.header] + " sync\n"
+		print "#" * 75
+		print " " * 15 + "Showing output for " + headers[self.header] + " sync\n"
+		print "#" * 75
 
 	# runs after each object is created
 	def what_to_sync(self):
@@ -215,10 +218,10 @@ class Sync(threading.Thread):
 									 stdout=subprocess.PIPE)
 
 			p.wait()
-			output = p.communicate()[0]
+			self.output = p.communicate()[0]
 			exitcode = p.returncode
 			# used to release output so their isn't output showing when user input is happening
-			if exitcode != 0:
+			if exitcode == 0:
 				self.release = True
 		except Exception as e:
 			print "Ooops something went wrong there..." + "\n"
@@ -238,7 +241,7 @@ def main():  # the main loop
 		for thread in threads:
 			if inspect.isclass(thread):  # my version of threading.Pool
 				poodex = int(pool.index(thread))  # (max 5)
-				pool[poodex].join()  # it's currently FILO, should maybe change to FIFO
+				pool[poodex].join()  
 				continue
 			else:
 				# the actual object creation
@@ -251,9 +254,8 @@ def main():  # the main loop
 				if sync == "y":
 					print "Use same source and destination?"
 					s_d = raw_input("y/n: ").lower()
-					if s_d == "y":  # releases the output so far and makes a new thread sync object
-						if thread.release:
-							print output
+					if s_d == "y":  # makes a new thread sync object
+						print "\n"
 						continue
 					elif s_d == "n":  # holds the output and starts the main loop over
 						for th in pool:
@@ -264,7 +266,7 @@ def main():  # the main loop
 					for th in pool:  # releases all the outputs for each sync then exits
 						if th.release:
 							th.print_sync()
-							print output
+							print th.output
 						th.join()
 					exit(0)
 
