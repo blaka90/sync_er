@@ -95,6 +95,7 @@ class Sync(threading.Thread):
 
 	# runs after each object is created
 	def what_to_sync(self):
+		# left the implementation in for the unused just for the time being maybe replace with diff dirs?
 		print "What would you like to sync?" + "\n"
 		print "1.  Full Hard Drive"
 		print "2.  Books"
@@ -104,12 +105,12 @@ class Sync(threading.Thread):
 		print "6.  Games"
 		print "7.  Pic's n Video's"
 		print "8.  Cloud Books"
-		print "9.  Documents"  # redundant due to macOS sierra update
-		print "10. Bash Scripts"  # redundant due to macOS sierra update
+		# print "9.  Documents"  # redundant due to macOS sierra update
+		# print "10. Bash Scripts"  # redundant due to macOS sierra update
 		print "11. Downloads"
 		print "12. Custom Paths"
 		print "13. Custom Remote Paths"
-		print "14. Ipad MovieBox"  # redundant due to selling ipad(leave and turn into iphone when jailbreak released)
+		# print "14. Ipad MovieBox"  # redundant due to selling ipad(leave and turn into iphone when jailbreak released)
 		print "15. Exit"
 		self.ans = raw_input(">")
 		self.sync_sort(self.ans)
