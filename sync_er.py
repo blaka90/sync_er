@@ -46,7 +46,7 @@ def main():
 """
 
 # should probably use threadings Pool class but until then this will do
-threads = ["thread1", "thread2", "thread3", "thread4", "thread5"]
+threads = ["thread0", "thread1", "thread2", "thread3", "thread4", "thread5", "thread6", "thread7", "thread8", "thread9"]
 pool = []
 
 
@@ -104,12 +104,12 @@ class Sync(threading.Thread):
 		print "6.  Games"
 		print "7.  Pic's n Video's"
 		print "8.  Cloud Books"
-		print "9.  Documents"
-		print "10. Bash Scripts"
+		print "9.  Documents"  # redundant due to macOS sierra update
+		print "10. Bash Scripts"  # redundant due to macOS sierra update
 		print "11. Downloads"
 		print "12. Custom Paths"
 		print "13. Custom Remote Paths"
-		print "14. Ipad MovieBox"
+		print "14. Ipad MovieBox"  # redundant due to selling ipad(leave and turn into iphone when jailbreak released)
 		print "15. Exit"
 		self.ans = raw_input(">")
 		self.sync_sort(self.ans)
@@ -230,6 +230,15 @@ class Sync(threading.Thread):
 			exit(1)
 
 
+def release_pool():
+	print "[*] Waiting for all jobs to finish [*]\n"
+	for th in pool:  # releases all the outputs for each sync then exits
+		th.join()
+		if th.release:
+			th.print_sync()
+	exit(0)
+
+
 def main():  # the main loop
 	user_source = raw_input("source username: ")
 	user_dest = raw_input("destination username: ")
@@ -238,37 +247,27 @@ def main():  # the main loop
 					 "folder)\nenter manually\n> ")
 	print "\n"
 	# the programs main loop for initiating a sync thread
-	while True:
-		for thread in threads:
-			if inspect.isclass(thread):  # my version of threading.Pool
-				poodex = int(pool.index(thread))  # (max 5)
-				pool[poodex].join()
+	# while True:
+	for thread in threads:
+		if inspect.isclass(thread):  # my version of threading.Pool
+			poodex = int(pool.index(thread))  # (max 10)
+			pool[poodex].join()
+			continue
+		else:
+			# the actual object creation
+			thread = Sync(user_source, user_dest, dest_ip, opts)
+			thread.start()
+			pool.append(thread)  # add it to the pool
+			print "\n" + "...Syncing..." + "\n"
+			print "\n" + "Would you like to sync any more?"
+			sync = raw_input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
+			if sync == "y":   # makes a new thread sync object
+				print "\n"
 				continue
 			else:
-				# the actual object creation
-				thread = Sync(user_source, user_dest, dest_ip, opts)
-				thread.start()
-				pool.append(thread)  # add it to the pool
-				print "\n" + "...Syncing..." + "\n"
-				print "\n" + "Would you like to sync any more?"
-				sync = raw_input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
-				if sync == "y":
-					print "Use same source and destination?"
-					s_d = raw_input("y/n: ").lower()
-					if s_d == "y":  # makes a new thread sync object
-						print "\n"
-						continue
-					elif s_d == "n":  # holds the output and starts the main loop over
-						for th in pool:
-							th.join()
-						main()
-				else:
-					print "\n"
-					for th in pool:  # releases all the outputs for each sync then exits
-						if th.release:
-							th.print_sync()
-						th.join()
-					exit(0)
+				print "\n"
+				break
+	release_pool()
 
 
 if __name__ == "__main__":
