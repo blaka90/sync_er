@@ -83,7 +83,7 @@ class Sync(threading.Thread):
 	def print_sync(self):
 		headers = {
 			1: "Full Hard Drive", 2: "Books", 3: "Iso's and Dmg's", 4: "VM's", 5: "Programming", 6: "Games",
-			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents", 10: "Bash Scripts", 11: "Downloads",
+			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents(linux2linux)", 10: "Documents(make mac to linux)", 11: "Downloads",
 			12: "Custom Paths", 13: "Custom Remote Paths", 14: "Ipad MovieBox"}
 		print "#" * 75
 		print " " * 15 + "Showing output for " + headers[self.header] + " sync"
@@ -106,7 +106,8 @@ class Sync(threading.Thread):
 		print "7.  Pic's n Video's"
 		print "8.  Cloud Books"
 		# print "9.  Documents"  # redundant due to macOS sierra update
-		# print "10. Bash Scripts"  # redundant due to macOS sierra update
+		print "9.  Documents(linux2linux)"
+		print "10. Documents(mac/linux)"
 		print "11. Downloads"
 		print "12. Custom Paths"
 		print "13. Custom Remote Paths"
@@ -128,56 +129,63 @@ class Sync(threading.Thread):
 			self.dest_hdd = "MacMiniHDD"
 
 		if folder == "1":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/"
 			self.header = 1
 
 		elif folder == "2":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/Books/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/Books/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/Books/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/Books/"
 			self.header = 2
 
 		elif folder == "3":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/iso n dmgs/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/iso\ n\ dmgs/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/iso_n_dmgs/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/iso_n_dmgs/"
 			self.header = 3
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "4":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/VMS/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/VMS/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/VMS/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/VMS/"
 			self.header = 4
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "5":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/programming/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/programming/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/programming/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/programming/"
 			self.header = 5
 
 		elif folder == "6":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/GAMES/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/GAMES/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/GAMES/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/GAMES/"
 			self.header = 6
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "7":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/pics n videos/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me\ shit/pics\ n\ videos/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/pics_n_videos/"
+			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/pics_n_videos/"
 			self.header = 7
 
 		elif folder == "8":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me shit/Books/"
+			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/Books/"
 			self.dest_folder = "/Users/" + self.destination + "/Google\ Drive/Books/"
 			self.header = 8
 
 		elif folder == "9":
-			self.source_folder = "/Users/" + self.source + "/Documents/"
-			self.dest_folder = "/Users/" + self.destination + "/Documents/"
+			self.source_folder = "/home/" + self.source + "/Documents/"
+			self.dest_folder = "/home/" + self.destination + "/Documents/"
 			self.header = 9
 
 		elif folder == "10":
-			self.source_folder = "/Users/" + self.source + "/Desktop/bash scripts/"
-			self.dest_folder = "/Users/" + self.destination + "/Desktop/bash\ scripts/"
+			if "blaka" in self.source:
+				self.source_folder = "/Users/" + self.source + "/Documents/"
+				self.dest_folder = "/home/" + self.destination + "/Documents/"
+			elif "kali" in self.source:
+				self.source_folder = "/home/" + self.source + "/Documents/"
+				self.dest_folder = "/Users/" + self.destination + "/Documents/"
+			else:
+				print "I am broken fix me(mac/linux documents sync)"
+				exit(5)
 			self.header = 10
 
 		elif folder == "11":
@@ -215,6 +223,10 @@ class Sync(threading.Thread):
 									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			elif self.ans == "14":
 				p = subprocess.Popen(["scp", ipad, self.source_folder], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			elif self.ans == "10":
+				exclude = "--exclude=SimCityMedia/"
+				p = subprocess.Popen([self.command, self.options, exclude, self.source_folder, destination],
+									stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			elif self.ans == "5":
 				exclude = "--exclude=InfiniteSkills - Learning Python Programming/"
 				p = subprocess.Popen([self.command, self.options, exclude, self.source_folder, destination],
@@ -259,6 +271,7 @@ def main():  # the main loop
 			thread = Sync(user_source, user_dest, dest_ip, opts)
 			thread.start()
 			pool.append(thread)  # add it to the pool
+			thread.join()
 			print "\n" + "...Syncing..." + "\n"
 			print "\n" + "Would you like to sync any more?"
 			sync = raw_input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
