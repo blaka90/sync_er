@@ -14,10 +14,6 @@ from getpass import getuser
 """
 	need to put all documentation in!
 
-	14. is a working progress(soon as i bastard find .ssh/authorized_keys on ipad)
-
-	8. also is a bit dodgy for the time being just do local custom paths(12) for now
-
 	add command line option parser but if none just uses original program
 """
 
@@ -84,8 +80,9 @@ class Sync(threading.Thread):
 	def print_sync(self):
 		headers = {
 			1: "Full Hard Drive", 2: "Books", 3: "Iso's and Dmg's", 4: "VM's", 5: "Programming", 6: "Games",
-			7: "Pic's n Video's", 8: "Cloud Books", 9: "Documents(linux2linux)", 10: "Documents(make mac to linux)", 11: "Downloads",
-			12: "Custom Paths", 13: "Custom Remote Paths", 14: "Ipad MovieBox"}
+			7: "Pic's n Video's", 8: "Downloads(mac > linux)", 9: "Documents(linux > linux)",
+			10: "Documents(mac <> linux)", 11: "Downloads(linux > mac)",12: "Custom Paths",
+			13: "Custom Remote Paths", 14: "Tablet"}
 		print "#" * 75
 		print " " * 15 + "Showing output for " + headers[self.header] + " sync"
 		print "#" * 75
