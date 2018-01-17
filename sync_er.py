@@ -5,6 +5,7 @@ import os
 import threading
 import inspect
 from optparse import OptionParser
+from getpass import getuser
 
 
 '''---------------THIS WILL NOT WORK ON ANY OTHER MACHINES BAR MINE, NOR IS IT MEANT TOO----------- '''
@@ -104,71 +105,76 @@ class Sync(threading.Thread):
 		print "5.  Programming"
 		print "6.  Games"
 		print "7.  Pic's n Video's"
-		print "8.  Cloud Books"
-		# print "9.  Documents"  # redundant due to macOS sierra update
-		print "9.  Documents(linux2linux)"
-		print "10. Documents(mac/linux)"
-		print "11. Downloads"
+		print "8.  Downloads(mac > linux)"
+		print "9.  Documents(linux > linux)"
+		print "10. Documents(mac <> linux)"
+		print "11. Downloads(linux > mac)"
 		print "12. Custom Paths"
 		print "13. Custom Remote Paths"
-		# print "14. Ipad MovieBox"  # redundant due to selling ipad(leave and turn into iphone when jailbreak released)
+		print "14. Tablet(broken)"  # FIX THIS TO WORK WITH TABLET(get movies showbox)
 		print "15. Exit"
 		self.ans = raw_input(">")
 		self.sync_sort(self.ans)
 
 	# sets the source destination of the sync
 	def sync_sort(self, folder):
-		if self.source == "blaka":
-			self.src_hdd = "MacBookHDD"
+		if self.source == "blaka7":
+			self.src_hdd = "/mnt/HDD"
+		elif self.source == "blaka":
+			self.src_hdd = "/Volumes/MacBookHDD"
 		else:
-			self.src_hdd = "MacMiniHDD"
+			print "This machine is not on the source list, please specify HardDrive Location:\n"
+			self.src_hdd = raw_input("> ")
 
-		if self.destination == "blaka":
-			self.dest_hdd = "MacBookHDD"
+		if self.destination == "blaka7":
+			self.dest_hdd = "/mnt/HDD"
+		elif self.destination == "blaka":
+			self.dest_hdd = "/Volumes/MacBookHDD"
 		else:
-			self.dest_hdd = "MacMiniHDD"
+			print "This machine is not on the source list, please specify HardDrive Location:\n"
+			self.src_hdd = raw_input("> ")
 
 		if folder == "1":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/"
+			self.source_folder = self.src_hdd + "/me_shit/"
+			self.dest_folder = self.dest_hdd + "/me_shit/"
 			self.header = 1
 
 		elif folder == "2":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/Books/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/Books/"
+			self.source_folder = self.src_hdd + "/me_shit/Books/"
+			self.dest_folder = self.dest_hdd + "/me_shit/Books/"
 			self.header = 2
 
 		elif folder == "3":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/iso_n_dmgs/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/iso_n_dmgs/"
+			self.source_folder = self.src_hdd + "/me_shit/iso_n_dmgs/"
+			self.dest_folder = self.dest_hdd + "/me_shit/iso_n_dmgs/"
 			self.header = 3
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "4":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/VMS/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/VMS/"
+			self.source_folder = self.src_hdd + "/me_shit/VMS/"
+			self.dest_folder = self.dest_hdd + "/me_shit/VMS/"
 			self.header = 4
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "5":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/programming/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/programming/"
+			self.source_folder = self.src_hdd + "/me_shit/programming/"
+			self.dest_folder = self.dest_hdd + "/me_shit/programming/"
 			self.header = 5
 
 		elif folder == "6":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/GAMES/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/GAMES/"
+			self.source_folder = self.src_hdd + "/me_shit/GAMES/"
+			self.dest_folder = self.dest_hdd + "/me_shit/GAMES/"
 			self.header = 6
 			print "\n" + "Please wait...this could take a while"
 
 		elif folder == "7":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/pics_n_videos/"
-			self.dest_folder = "/Volumes/" + self.dest_hdd + "/me_shit/pics_n_videos/"
+			self.source_folder = self.src_hdd + "/me_shit/pics_n_videos/"
+			self.dest_folder = self.dest_hdd + "/me_shit/pics_n_videos/"
 			self.header = 7
 
 		elif folder == "8":
-			self.source_folder = "/Volumes/" + self.src_hdd + "/me_shit/Books/"
-			self.dest_folder = "/Users/" + self.destination + "/Google\ Drive/Books/"
+			self.source_folder = "/Users/" + self.src_hdd + "/Downloads/"
+			self.dest_folder = "/home/" + self.destination + "/Downloads/"
 			self.header = 8
 
 		elif folder == "9":
@@ -177,10 +183,10 @@ class Sync(threading.Thread):
 			self.header = 9
 
 		elif folder == "10":
-			if "blaka" in self.source:
+			if self.source == "blaka":
 				self.source_folder = "/Users/" + self.source + "/Documents/"
 				self.dest_folder = "/home/" + self.destination + "/Documents/"
-			elif "kali" in self.source:
+			elif self.source == "blaka7":
 				self.source_folder = "/home/" + self.source + "/Documents/"
 				self.dest_folder = "/Users/" + self.destination + "/Documents/"
 			else:
@@ -189,7 +195,7 @@ class Sync(threading.Thread):
 			self.header = 10
 
 		elif folder == "11":
-			self.source_folder = "/Users/" + self.source + "/Downloads/"
+			self.source_folder = "/home/" + self.source + "/Downloads/"
 			self.dest_folder = "/Users/" + self.destination + "/Downloads/"
 			self.header = 11
 
@@ -253,7 +259,8 @@ def release_pool():
 
 
 def main():  # the main loop
-	user_source = raw_input("source username: ")
+	user_source = getuser()
+	print "Using username: " + user_source
 	user_dest = raw_input("destination username: ")
 	dest_ip = raw_input("destination ip(leave blank for local): ")
 	opts = raw_input("options:\n(d)efault\n(c)ompress\n(del)ete (only deletes what is already deleted from source "
