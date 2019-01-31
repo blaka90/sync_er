@@ -15,11 +15,13 @@ from getpass import getuser
 
 """TO FIX:
 
+need to add documentation!!!!!!!!!
+
 add option for scp instead of rsync(essentially what number 14 does)
 
 encoding issue when try running as python3 signal sends bytes instead of unicode or vice versa
 
-can't just sync again by unticking or changing input have to clear settings first? fix this
+change show_user_info to 'Sync Failed' if it fails instead of completed regardless
 
 """
 
@@ -27,7 +29,7 @@ can't just sync again by unticking or changing input have to clear settings firs
 class Window(QWidget):
 	def __init__(self):
 		super(Window, self).__init__()
-		os.chdir("/")
+		self.path()
 		self.start_style()
 		self.user = getuser()
 		self.initui()
@@ -37,7 +39,6 @@ class Window(QWidget):
 		self.command = "rsync"
 		self.custom_source_path = ""
 		self.custom_dest_path = ""
-		self.pool = QThreadPool()
 
 	@staticmethod
 	def start_style():
@@ -63,12 +64,18 @@ class Window(QWidget):
 		                   "#2a82da; border: 1px solid white; }")
 
 	@staticmethod
+	def path():
+		abspath = os.path.abspath(__file__)
+		dir_name = os.path.dirname(abspath)
+		os.chdir(dir_name)
+
+	@staticmethod
 	def welcome_banner():
 		return "--_--" * 30 + "\n" + " " * 100 + "SYNC_ER" + "\n" + "_-_" * 40 + "\n"
 
 	def initui(self):
 		self.setWindowTitle("Sync_er")
-		self.setWindowIcon(QIcon("/home/" + self.user + "/Documents/python/sync_er/syncer.png"))
+		self.setWindowIcon(QIcon("syncer.png"))
 		self.setGeometry(150, 100, 1400, 800)
 		self.setFixedSize(1400, 800)
 
@@ -268,6 +275,7 @@ class Window(QWidget):
 		self.custom_dest_path = self.custom_path_dst.text()
 
 	def syncer(self):
+		self.pool = QThreadPool()
 		self.show_user_info.setText("Syncing...")
 		self.clear_display()
 		QTest.qWait(1000)
