@@ -13,14 +13,28 @@ from getpass import getuser
 ###################################################################################################################
 """
 
-version = 1.3
+version = 1.4
 
-"""TO FIX:
-
-add option for scp instead of rsync(essentially what number 14 does)
+"""
+TO FIX:
 
 encoding issue when try running as python3 signal sends bytes instead of unicode
 
+TO ADD:
+
+add option for scp instead of rsync(essentially what number 14 does)
+this could be a toggle with rsync and scp after username label
+
+add option to find ip address from username giving(has to be on network...possibly with nmap?)
+or save ip address of username and try it when that username is used...enter manual otherwise until saved
+
+add button which opens new small window that can add multiple custom remote/local paths?
+
+may have to make fullscreen if adding more features or going to get crowded
+
+try make compatible with windows and mac:
+	Documents option maps to os dependent path documents, same for downloads etc
+	including adding all the standards...pictures music videos etc
 """
 
 
@@ -36,8 +50,10 @@ class Window(QWidget):
 		self.what_to_sync = []
 		self.header = int()
 		self.command = "rsync"
-		self.custom_source_path = ""
-		self.custom_dest_path = ""
+		self.custom_local_source_path = ""
+		self.custom_local_dest_path = ""
+		self.custom_remote_source_path = ""
+		self.custom_remote_dest_path = ""
 		self.user_and_dest_okay = True
 		self.custom_source_and_dest_okay = True
 
@@ -134,10 +150,12 @@ class Window(QWidget):
 		self.sync_option3 = QRadioButton("Delete")
 		# manually specify syncing options(probably only used in rare cases)
 		self.sync_option4 = QRadioButton("Enter Manually")
+		self.sync_option4.toggled.connect(self.check_option)
 		# user input box for manual options/flags
 		self.sync_option4_input = QLineEdit(self)
 		self.sync_option4_input.setFixedWidth(100)
 		self.sync_option4_input.setPlaceholderText("eg. -Paiurv")
+		self.sync_option4_input.setDisabled(True)
 
 		# label used to show the user some feedback in many instances
 		self.show_user_info = QLabel(self)
@@ -153,17 +171,33 @@ class Window(QWidget):
 		self.clear_display_button = QPushButton("Clear Display", self)
 		self.clear_display_button.clicked.connect(self.clear_display)
 
-		# user input box for the source of remote and local syncs
-		self.custom_path_src = QLineEdit(self)
-		self.custom_path_src.setPlaceholderText("Custom Source Path")
-		# user input box for the destination of remote and local syncs
-		self.custom_path_dst = QLineEdit(self)
-		self.custom_path_dst.setPlaceholderText("Custom Destination Path")
+		# user input box for the source of remote syncs
+		self.custom_remote_path_src = QLineEdit(self)
+		self.custom_remote_path_src.setPlaceholderText("Custom Remote Source Path")
+		self.custom_remote_path_src.setDisabled(True)
+		# user input box for the destination of remote syncs
+		self.custom_remote_path_dst = QLineEdit(self)
+		self.custom_remote_path_dst.setPlaceholderText("Custom Remote Destination Path")
+		self.custom_remote_path_dst.setDisabled(True)
 
-		# horizontal layout for custom user path input boxes
-		h_box_paths = QHBoxLayout()
-		h_box_paths.addWidget(self.custom_path_src)
-		h_box_paths.addWidget(self.custom_path_dst)
+		# user input box for the source of local syncs
+		self.custom_local_path_src = QLineEdit(self)
+		self.custom_local_path_src.setPlaceholderText("Custom Local Source Path")
+		self.custom_local_path_src.setDisabled(True)
+		# user input box for the destination of local syncs
+		self.custom_local_path_dst = QLineEdit(self)
+		self.custom_local_path_dst.setPlaceholderText("Custom Local Destination Path")
+		self.custom_local_path_dst.setDisabled(True)
+
+		# horizontal layout for custom remote user path input boxes
+		h_box_remote_paths = QHBoxLayout()
+		h_box_remote_paths.addWidget(self.custom_remote_path_src)
+		h_box_remote_paths.addWidget(self.custom_remote_path_dst)
+
+		# horizontal layout for custom local user path input boxes
+		h_box_local_paths = QHBoxLayout()
+		h_box_local_paths.addWidget(self.custom_local_path_src)
+		h_box_local_paths.addWidget(self.custom_local_path_dst)
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
@@ -193,14 +227,15 @@ class Window(QWidget):
 		v_box_options.addWidget(self.option1)
 		v_box_options.addWidget(self.option2)
 		v_box_options.addWidget(self.option3)
+		v_box_options.addLayout(h_box_local_paths)
 		v_box_options.addWidget(self.option4)
+		v_box_options.addLayout(h_box_remote_paths)
 
 		# layout for the left hand side of ui layouts
 		v_box = QVBoxLayout()
 		v_box.addWidget(self.user_label)
 		v_box.addLayout(grid)
 		v_box.addLayout(v_box_options)
-		v_box.addLayout(h_box_paths)
 		v_box.addStretch(1)
 		v_box.addWidget(self.show_user_info)
 		v_box.addLayout(h_box_buttons)
@@ -212,6 +247,12 @@ class Window(QWidget):
 
 		# set the layout
 		self.setLayout(h_box)
+
+	def check_option(self, enabled):
+		if enabled:
+			self.sync_option4_input.setDisabled(False)
+		else:
+			self.sync_option4_input.setDisabled(True)
 
 	# if any checkbox is ticked, add to or remove from what_to_sync list
 	def get_header_1(self, state):
@@ -229,14 +270,22 @@ class Window(QWidget):
 	def get_header_3(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(3)
+			self.custom_local_path_src.setDisabled(False)
+			self.custom_local_path_dst.setDisabled(False)
 		else:
 			self.what_to_sync.remove(3)
+			self.custom_local_path_src.setDisabled(True)
+			self.custom_local_path_dst.setDisabled(True)
 
 	def get_header_4(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(4)
+			self.custom_remote_path_src.setDisabled(False)
+			self.custom_remote_path_dst.setDisabled(False)
 		else:
 			self.what_to_sync.remove(4)
+			self.custom_remote_path_src.setDisabled(True)
+			self.custom_remote_path_dst.setDisabled(True)
 
 	# sets the correct option/flag from user input and returns option for use in sync
 	def get_options(self):
@@ -264,13 +313,16 @@ class Window(QWidget):
 		self.option2.setChecked(False)
 		self.option3.setChecked(False)
 		self.option4.setChecked(False)
-		self.custom_path_src.setText("")
-		self.custom_path_dst.setText("")
+		self.custom_remote_path_src.setText("")
+		self.custom_remote_path_dst.setText("")
+		self.custom_local_path_src.setText("")
+		self.custom_local_path_dst.setText("")
 		self.show_user_info.setText("")
 		self.options = None
-		# self.what_to_sync[:] = []
-		self.custom_source_path = ""
-		self.custom_dest_path = ""
+		self.custom_local_source_path = ""
+		self.custom_local_dest_path = ""
+		self.custom_remote_source_path = ""
+		self.custom_remote_dest_path = ""
 
 	# clears the output display only when clear display button is pressed
 	def clear_display(self):
@@ -316,8 +368,10 @@ class Window(QWidget):
 		self.get_options()
 		self.dest_user = str(self.dest_user_input.text())
 		self.dest_ip = str(self.dest_ip_input.text())
-		self.custom_source_path = str(self.custom_path_src.text())
-		self.custom_dest_path = str(self.custom_path_dst.text())
+		self.custom_local_source_path = str(self.custom_local_path_src.text())
+		self.custom_local_dest_path = str(self.custom_local_path_dst.text())
+		self.custom_remote_source_path = str(self.custom_remote_path_src.text())
+		self.custom_remote_dest_path = str(self.custom_remote_path_dst.text())
 		# used later for if the user doesn't specify certain details when trying to sync
 		if (not self.dest_user) or (not self.dest_ip):
 			self.user_and_dest_okay = False
@@ -373,7 +427,8 @@ class Window(QWidget):
 			QTest.qWait(1000)
 			# creates the sync object, passing it all required input for sync
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
-			                           self.custom_dest_path, self.custom_source_path)
+			                           self.custom_local_dest_path, self.custom_local_source_path,
+			                           self.custom_remote_dest_path, self.custom_remote_source_path)
 			# signal for when thread is complete, output ready for display
 			self.worker.signals.finished.connect(self.print_sync)
 			# start the thread/sync
@@ -390,7 +445,8 @@ class WorkerSignals(QObject):
 # object for running the sync commands
 class SyncThatShit(QRunnable):
 	# all user input passed to it from main window ui
-	def __init__(self, header, command, options, user, dest_user, dest_ip, custom_dest_path, custom_source_path):
+	def __init__(self, header, command, options, user, dest_user, dest_ip, custom_local_dest_path,
+	             custom_local_source_path, custom_remote_dest_path, custom_remote_source_path):
 		QRunnable.__init__(self)
 		self.header = header
 		self.command = command
@@ -399,8 +455,10 @@ class SyncThatShit(QRunnable):
 		self.user = user
 		self.dest_user = dest_user
 		self.dest_ip = dest_ip
-		self.custom_dest_path = custom_dest_path
-		self.custom_source_path = custom_source_path
+		self.custom_local_dest_path = custom_local_dest_path
+		self.custom_local_source_path = custom_local_source_path
+		self.custom_remote_dest_path = custom_remote_dest_path
+		self.custom_remote_source_path = custom_remote_source_path
 		self.source_path = ""
 		self.dest_path = ""
 		self.destination = ""
@@ -415,7 +473,7 @@ class SyncThatShit(QRunnable):
 		try:  # used for remote options
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
-			# obsolete from cli verion(will be updated to usuable option tho)
+			# obsolete from cli version(will be updated to usuable option tho)
 			# ipad = self.destination + "@" + self.destination_ip + ":" + self.dest_path
 
 			# command for local syncs
@@ -468,15 +526,15 @@ class SyncThatShit(QRunnable):
 
 		# sets if self.option3 is ticked
 		elif self.header == 3:
-			self.source_path = self.custom_source_path
-			self.dest_path = self.custom_dest_path
+			self.source_path = self.custom_local_source_path
+			self.dest_path = self.custom_local_dest_path
 
 		# sets if self.option4 is ticked
 		elif self.header == 4:
-			self.source_path = self.custom_source_path
-			self.dest_path = self.custom_dest_path
+			self.source_path = self.custom_remote_source_path
+			self.dest_path = self.custom_remote_dest_path
 
-		# obsolete from cli verion(will be updated to usuable option tho)
+		# obsolete from cli version(will be updated to usuable option tho)
 		elif self.header == 14:
 			# self.source_path = "/Users/" + self.source + "/Desktop/films/"
 			# self.dest_path = "/User/Library/Artworks/*"
