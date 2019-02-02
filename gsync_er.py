@@ -39,6 +39,8 @@ class Window(QWidget):
 		self.command = "rsync"
 		self.custom_source_path = ""
 		self.custom_dest_path = ""
+		self.user_and_dest_okay = True
+		self.custom_source_and_dest_okay = True
 
 	@staticmethod
 	def start_style():
@@ -190,18 +192,26 @@ class Window(QWidget):
 	def get_header_1(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(1)
+		else:
+			self.what_to_sync.remove(1)
 
 	def get_header_2(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(2)
+		else:
+			self.what_to_sync.remove(2)
 
 	def get_header_3(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(3)
+		else:
+			self.what_to_sync.remove(3)
 
 	def get_header_4(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(4)
+		else:
+			self.what_to_sync.remove(4)
 
 	def get_options(self):
 		if self.sync_option1.isChecked():
@@ -231,7 +241,7 @@ class Window(QWidget):
 		self.custom_path_dst.setText("")
 		self.show_user_info.setText("")
 		self.options = None
-		self.what_to_sync[:] = []
+		# self.what_to_sync[:] = []
 		self.custom_source_path = ""
 		self.custom_dest_path = ""
 
@@ -269,24 +279,59 @@ class Window(QWidget):
 
 	def get_sync_info(self):
 		self.get_options()
-		self.dest_user = self.dest_user_input.text()
-		self.dest_ip = self.dest_ip_input.text()
-		self.custom_source_path = self.custom_path_src.text()
-		self.custom_dest_path = self.custom_path_dst.text()
+		self.dest_user = str(self.dest_user_input.text())
+		self.dest_ip = str(self.dest_ip_input.text())
+		self.custom_source_path = str(self.custom_path_src.text())
+		self.custom_dest_path = str(self.custom_path_dst.text())
+		if (not self.dest_user) or (not self.dest_ip):
+			self.user_and_dest_okay = False
+		if (not self.custom_source_path) or (not self.custom_dest_path):
+			self.custom_source_and_dest_okay = False
 
 	def syncer(self):
+		if not self.what_to_sync:
+			self.show_user_info.setText("Please choose options to begin syncing")
+			QTest.qWait(3000)
+			self.show_user_info.setText("")
+			self.update()
+			return
+
 		self.pool = QThreadPool()
-		self.show_user_info.setText("Syncing...")
-		self.clear_display()
-		QTest.qWait(1000)
 		self.get_sync_info()
+		self.clear_display()
+		to_check = [1, 2, 4]
+
 		for h in self.what_to_sync:
+			if h in to_check:
+				if not self.custom_source_and_dest_okay:
+					self.show_user_info.setText("Please input custom paths before syncing")
+					QTest.qWait(3000)
+					self.show_user_info.setText("")
+					self.update()
+					self.custom_source_and_dest_okay = True
+					return
+				if not self.user_and_dest_okay:
+					self.show_user_info.setText("Please input username or ip address before syncing")
+					QTest.qWait(3000)
+					self.show_user_info.setText("")
+					self.update()
+					self.user_and_dest_okay = True
+					return
+			elif h == 3:
+				if not self.custom_source_and_dest_okay:
+					self.show_user_info.setText("Please input custom paths before syncing")
+					QTest.qWait(3000)
+					self.show_user_info.setText("")
+					self.update()
+					self.custom_source_and_dest_okay = True
+					return
+			self.show_user_info.setText("Syncing...")
+			QTest.qWait(1000)
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
 			                           self.custom_dest_path, self.custom_source_path)
 			self.worker.signals.finished.connect(self.print_sync)
 			self.pool.start(self.worker)
 		self.pool.waitForDone()
-		self.what_to_sync[:] = []
 
 
 class WorkerSignals(QObject):
