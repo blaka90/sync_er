@@ -13,12 +13,15 @@ from getpass import getuser
 ###################################################################################################################
 """
 
-version = 1.4
+version = 1.5
 
 """
 TO FIX:
 
 encoding issue when try running as python3 signal sends bytes instead of unicode
+
+remove self.options from syncer when running the command(scp doesn't take options dipshit)
+also may need to add wildcard * after path (/home/user/Documents/*)
 
 TO ADD:
 
@@ -28,6 +31,8 @@ this could be a toggle with rsync and scp after username label
 add option to find ip address from username giving(has to be on network...possibly with nmap?)
 or save ip address of username and try it when that username is used...enter manual otherwise until saved
 
+add button that brings up gui to choose path instead of typing it out
+
 add button which opens new small window that can add multiple custom remote/local paths?
 
 may have to make fullscreen if adding more features or going to get crowded
@@ -35,6 +40,7 @@ may have to make fullscreen if adding more features or going to get crowded
 try make compatible with windows and mac:
 	Documents option maps to os dependent path documents, same for downloads etc
 	including adding all the standards...pictures music videos etc
+	
 """
 
 
@@ -45,17 +51,19 @@ class Window(QWidget):
 		self.path()
 		self.start_style()
 		self.user = getuser()
-		self.initui()
+		self.init_ui()
 		self.options = None
 		self.what_to_sync = []
 		self.header = int()
+		self.any_errors = False
 		self.command = "rsync"
 		self.custom_local_source_path = ""
 		self.custom_local_dest_path = ""
 		self.custom_remote_source_path = ""
 		self.custom_remote_dest_path = ""
 		self.user_and_dest_okay = True
-		self.custom_source_and_dest_okay = True
+		self.custom_remote_source_and_dest_okay = True
+		self.custom_local_source_and_dest_okay = True
 
 	@staticmethod
 	def start_style():
@@ -91,7 +99,7 @@ class Window(QWidget):
 		return "--_--" * 30 + "\n" + " " * 100 + "SYNC_ER" + "\n" + "_-_" * 40 + "\n"
 
 	# initilize the user interface
-	def initui(self):
+	def init_ui(self):
 		# set the name, icon and size of main window
 		self.setWindowTitle("Sync_er")
 		self.setWindowIcon(QIcon("syncer.png"))
@@ -100,8 +108,24 @@ class Window(QWidget):
 
 		# label for showing the users username
 		self.user_label = QLabel(self)
-		self.user_label.setText("Using username: " + self.user)
+		self.user_label.setText("Your Username: " + self.user)
 		self.user_label.setAlignment(Qt.AlignTop)
+		self.user_label.setStyleSheet('color: gray')
+
+		# button for changing command to rsync (default)
+		self.rsync_button = QPushButton("Rsync")
+		self.rsync_button.setCheckable(True)
+		self.rsync_button.setChecked(True)
+		self.rsync_button.setStyleSheet('color: green')
+		self.rsync_button.setFixedWidth(100)
+		self.rsync_button.clicked.connect(self.rsync_command)
+		# button for changing command to scp
+		self.scp_button = QPushButton("Scp")
+		self.scp_button.setCheckable(True)
+		self.scp_button.setChecked(False)
+		self.scp_button.setStyleSheet('color: darkred')
+		self.scp_button.setFixedWidth(100)
+		self.scp_button.clicked.connect(self.scp_command)
 
 		# not used as a textedit, but used to display output from syncs
 		self.output_display = QTextEdit(self)
@@ -110,9 +134,9 @@ class Window(QWidget):
 		self.output_display.setText(self.welcome_banner())
 
 		# the options the user has to sync with (should be adding more later)
-		self.option1 = QCheckBox("1.  Documents(linux > linux)", self)
+		self.option1 = QCheckBox("1.  Documents (Linux > Linux)", self)
 		self.option1.stateChanged.connect(self.get_header_1)
-		self.option2 = QCheckBox("2.  Downloads(linux > linux)", self)
+		self.option2 = QCheckBox("2.  Downloads (Linux > Linux)", self)
 		self.option2.stateChanged.connect(self.get_header_2)
 		self.option3 = QCheckBox("3.  Custom Local Paths", self)
 		self.option3.stateChanged.connect(self.get_header_3)
@@ -189,6 +213,12 @@ class Window(QWidget):
 		self.custom_local_path_dst.setPlaceholderText("Custom Local Destination Path")
 		self.custom_local_path_dst.setDisabled(True)
 
+		# layout for left top row
+		top_row = QHBoxLayout()
+		top_row.addWidget(self.user_label)
+		top_row.addWidget(self.rsync_button)
+		top_row.addWidget(self.scp_button)
+
 		# horizontal layout for custom remote user path input boxes
 		h_box_remote_paths = QHBoxLayout()
 		h_box_remote_paths.addWidget(self.custom_remote_path_src)
@@ -233,7 +263,7 @@ class Window(QWidget):
 
 		# layout for the left hand side of ui layouts
 		v_box = QVBoxLayout()
-		v_box.addWidget(self.user_label)
+		v_box.addLayout(top_row)
 		v_box.addLayout(grid)
 		v_box.addLayout(v_box_options)
 		v_box.addStretch(1)
@@ -247,6 +277,18 @@ class Window(QWidget):
 
 		# set the layout
 		self.setLayout(h_box)
+
+	def rsync_command(self):
+		self.command = "rsync"
+		self.rsync_button.setStyleSheet('color: green')
+		self.scp_button.setStyleSheet('color: darkred')
+		self.scp_button.setChecked(False)
+
+	def scp_command(self):
+		self.command = "scp"
+		self.scp_button.setStyleSheet('color: green')
+		self.rsync_button.setStyleSheet('color: darkred')
+		self.rsync_button.setChecked(False)
 
 	def check_option(self, enabled):
 		if enabled:
@@ -342,24 +384,24 @@ class Window(QWidget):
 				self.output_display.setText("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                            " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
 				                            + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
-				self.show_user_info.setText("Sync Completed!\nbut...\n Errors have occured!")
+				self.any_errors = True
 
 			else:
 				self.output_display.setText("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                            " sync" + "\n" + "#" * 79 + "\n\n" + output)
-				self.show_user_info.setText("Sync Completed!")
+
 		# if multiple syncs are getting run it will append the ouputs together for display
 		else:
 			if len(errors) != 0:
 				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
 				                           + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
-				self.show_user_info.setText("Sync Completed!\nbut...\n Errors have occured!")
+				self.any_errors = True
 
 			else:
 				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 79 + "\n\n" + output)
-				self.show_user_info.setText("Sync Completed!")
+
 
 		self.update()
 
@@ -375,8 +417,10 @@ class Window(QWidget):
 		# used later for if the user doesn't specify certain details when trying to sync
 		if (not self.dest_user) or (not self.dest_ip):
 			self.user_and_dest_okay = False
-		if (not self.custom_source_path) or (not self.custom_dest_path):
-			self.custom_source_and_dest_okay = False
+		if (not self.custom_remote_source_path) or (not self.custom_remote_dest_path):
+			self.custom_remote_source_and_dest_okay = False
+		if (not self.custom_local_source_path) or (not self.custom_local_dest_path):
+			self.custom_local_source_and_dest_okay = False
 
 	# called when the sync button is pressed
 	def syncer(self):
@@ -399,12 +443,12 @@ class Window(QWidget):
 		for h in self.what_to_sync:
 			# if sync is remote make sure all user inputs required are filled
 			if h in to_check:
-				if not self.custom_source_and_dest_okay:  # make sure custom paths have user input
+				if not self.custom_remote_source_and_dest_okay:  # make sure custom paths have user input
 					self.show_user_info.setText("Please input custom paths before syncing")
 					QTest.qWait(3000)
 					self.show_user_info.setText("")
 					self.update()
-					self.custom_source_and_dest_okay = True
+					self.custom_remote_source_and_dest_okay = True
 					return
 				if not self.user_and_dest_okay:  # make sure username and ip address have user input
 					self.show_user_info.setText("Please input username or ip address before syncing")
@@ -415,12 +459,12 @@ class Window(QWidget):
 					return
 			# local sync only, make sure custom paths have user input
 			elif h == 3:
-				if not self.custom_source_and_dest_okay:
+				if not self.custom_local_source_and_dest_okay:
 					self.show_user_info.setText("Please input custom paths before syncing")
 					QTest.qWait(3000)
 					self.show_user_info.setText("")
 					self.update()
-					self.custom_source_and_dest_okay = True
+					self.custom_local_source_and_dest_okay = True
 					return
 			# if all user input is filled in start the sync
 			self.show_user_info.setText("Syncing...")  # give the user feedback
@@ -435,6 +479,10 @@ class Window(QWidget):
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
 		self.pool.waitForDone()
+		if self.any_errors:
+			self.show_user_info.setText("Sync Completed!\nbut...\n Errors have occured!")
+		else:
+			self.show_user_info.setText("Sync Completed!")
 
 
 # object used for signals when finished to start printing to display
@@ -478,6 +526,8 @@ class SyncThatShit(QRunnable):
 
 			# command for local syncs
 			if self.header == 3:
+				# just because you can't use scp locally
+				self.command = "rsync"
 				p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
 				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
