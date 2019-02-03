@@ -538,11 +538,15 @@ class SyncThatShit(QRunnable):
 
 			# command for remote syncs
 			else:
-				if self.delete:
-					p = subprocess.Popen([self.command, self.options, self.source_path, self.destination, "--delete"],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				if self.command == "rsync":
+					if self.delete:
+						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination, "--delete"],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					else:
+						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				else:
-					p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
+					p = subprocess.Popen([self.command, "-r", self.source_path, self.destination],
 					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 			# get command output and errors for use to display in ui
