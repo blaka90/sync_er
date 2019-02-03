@@ -13,7 +13,7 @@ from getpass import getuser
 ###################################################################################################################
 """
 
-version = 1.5
+version = 1.6
 
 """
 TO FIX:
@@ -21,17 +21,12 @@ TO FIX:
 encoding issue when try running as python3 signal sends bytes instead of unicode
 
 remove self.options from syncer when running the command(scp doesn't take options dipshit)
-also may need to add wildcard * after path (/home/user/Documents/*)
+also may need to add wildcard * after path (/home/user/Documents/*) ????
 
 TO ADD:
 
-add option for scp instead of rsync(essentially what number 14 does)
-this could be a toggle with rsync and scp after username label
-
 add option to find ip address from username giving(has to be on network...possibly with nmap?)
 or save ip address of username and try it when that username is used...enter manual otherwise until saved
-
-add button that brings up gui to choose path instead of typing it out
 
 add button which opens new small window that can add multiple custom remote/local paths?
 
@@ -212,6 +207,22 @@ class Window(QWidget):
 		self.custom_local_path_dst = QLineEdit(self)
 		self.custom_local_path_dst.setPlaceholderText("Custom Local Destination Path")
 		self.custom_local_path_dst.setDisabled(True)
+		# button to open the file browser for local source path
+		self.local_src_dir_button = QPushButton("...", self)
+		self.local_src_dir_button.setFixedWidth(20)
+		self.local_src_dir_button.clicked.connect(self.local_src_dir_brow)
+		# button to open the file browser fro local destination path
+		self.local_dst_dir_button = QPushButton("...", self)
+		self.local_dst_dir_button.setFixedWidth(20)
+		self.local_dst_dir_button.clicked.connect(self.local_dst_dir_brow)
+		# button to open the file browser for remote source path
+		self.remote_src_dir_button = QPushButton("...", self)
+		self.remote_src_dir_button.setFixedWidth(20)
+		self.remote_src_dir_button.clicked.connect(self.remote_src_dir_brow)
+		# button to open the file browser for remote destination path
+		self.remote_dst_dir_button = QPushButton("...", self)
+		self.remote_dst_dir_button.setFixedWidth(20)
+		self.remote_dst_dir_button.clicked.connect(self.remote_dst_dir_brow)
 
 		# layout for left top row
 		top_row = QHBoxLayout()
@@ -222,12 +233,16 @@ class Window(QWidget):
 		# horizontal layout for custom remote user path input boxes
 		h_box_remote_paths = QHBoxLayout()
 		h_box_remote_paths.addWidget(self.custom_remote_path_src)
+		h_box_remote_paths.addWidget(self.remote_src_dir_button)
 		h_box_remote_paths.addWidget(self.custom_remote_path_dst)
+		h_box_remote_paths.addWidget(self.remote_dst_dir_button)
 
 		# horizontal layout for custom local user path input boxes
 		h_box_local_paths = QHBoxLayout()
 		h_box_local_paths.addWidget(self.custom_local_path_src)
+		h_box_local_paths.addWidget(self.local_src_dir_button)
 		h_box_local_paths.addWidget(self.custom_local_path_dst)
+		h_box_local_paths.addWidget(self.local_dst_dir_button)
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
@@ -278,18 +293,69 @@ class Window(QWidget):
 		# set the layout
 		self.setLayout(h_box)
 
+	# create file manager object for local source and capture data
+	def local_src_dir_brow(self):
+		self.ls_db = MyFileBrowser()
+		self.ls_db.show()
+		self.ls_db.return_data.connect(self.local_src_dir_brow_recv)
+
+	# receive data from file manager object signal and set to local source input
+	def local_src_dir_brow_recv(self, data):
+		self.custom_local_path_src.setText(data)
+
+	# create file manager object for local destination and capture data
+	def local_dst_dir_brow(self):
+		self.ld_db = MyFileBrowser()
+		self.ld_db.show()
+		self.ld_db.return_data.connect(self.local_dst_dir_brow_recv)
+
+	# receive data from file manager object signal and set to local destination input
+	def local_dst_dir_brow_recv(self, data):
+		self.custom_local_path_dst.setText(data)
+
+	# create file manager object for remote source and capture data
+	def remote_src_dir_brow(self):
+		self.rs_db = MyFileBrowser()
+		self.rs_db.show()
+		self.rs_db.return_data.connect(self.remote_src_dir_brow_recv)
+
+	# receive data from file manager object signal and set to remote source input
+	def remote_src_dir_brow_recv(self, data):
+		self.custom_remote_path_src.setText(data)
+
+	# create file manager object for remote destination and capture data
+	def remote_dst_dir_brow(self):
+		self.rd_db = MyFileBrowser()
+		self.rd_db.show()
+		self.rd_db.return_data.connect(self.remote_dst_dir_brow_recv)
+
+	# receive data from file manager object signal and set to remote destination input
+	def remote_dst_dir_brow_recv(self, data):
+		# experimental-get remote user path and try just swapping usernames given paths should be same bar username
+		if self.dest_user_input.text() == "":
+			self.show_user_info.setText("This Option only works if destination Username has been input")
+			QTest.qWait(3000)
+			self.show_user_info.setText("")
+			return
+		else:
+			new_data = data.replace(self.user, self.dest_user_input.text())
+			self.custom_remote_path_dst.setText(new_data)
+
+	# (on by default) button to enable rsync command instead of scp
 	def rsync_command(self):
 		self.command = "rsync"
 		self.rsync_button.setStyleSheet('color: green')
 		self.scp_button.setStyleSheet('color: darkred')
 		self.scp_button.setChecked(False)
 
+	# button to enable scp command instead of rsync
 	def scp_command(self):
 		self.command = "scp"
 		self.scp_button.setStyleSheet('color: green')
 		self.rsync_button.setStyleSheet('color: darkred')
 		self.rsync_button.setChecked(False)
 
+	# disables input for custom option/flag if unchecked...vice versa
 	def check_option(self, enabled):
 		if enabled:
 			self.sync_option4_input.setDisabled(False)
@@ -309,6 +375,7 @@ class Window(QWidget):
 		else:
 			self.what_to_sync.remove(2)
 
+	# Disable input unless tick box is checked
 	def get_header_3(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(3)
@@ -401,7 +468,6 @@ class Window(QWidget):
 			else:
 				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 79 + "\n\n" + output)
-
 
 		self.update()
 
@@ -593,6 +659,37 @@ class SyncThatShit(QRunnable):
 			# self.source_path = "/Users/" + self.source + "/Desktop/films/"
 			# self.dest_path = "/User/Library/Artworks/*"
 			pass
+
+
+class MyFileBrowser(QTreeView):
+	return_data = pyqtSignal(str)
+
+	def __init__(self):
+		QTreeView.__init__(self)
+		self.setWindowTitle("Custom Path File Manager")
+		path = "/"
+		self.file_path = ""
+		self.model = QFileSystemModel()
+		self.model.setRootPath(QDir.rootPath())
+		self.setGeometry(920, 200, 1000, 600)
+		self.setModel(self.model)
+		self.setRootIndex(self.model.index(path))
+		self.setSortingEnabled(True)
+		self.setColumnWidth(0, 650)
+		self.sortByColumn(0, Qt.AscendingOrder)
+		self.open_button = QPushButton("Open", self)
+		self.open_button.clicked.connect(self.return_path)
+
+		self.v_box = QVBoxLayout(self)
+		self.v_box.addWidget(self.open_button)
+		self.v_box.setAlignment(Qt.AlignBottom)
+		self.setLayout(self.v_box)
+
+	def return_path(self):
+		fp = self.selectedIndexes()[0]
+		self.file_path = self.model.filePath(fp)
+		self.return_data.emit(self.file_path)
+		self.close()
 
 
 def main():
