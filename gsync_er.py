@@ -23,6 +23,10 @@ encoding issue when try running as python3 signal sends bytes instead of unicode
 remove self.options from syncer when running the command(scp doesn't take options dipshit)
 also may need to add wildcard * after path (/home/user/Documents/*) ????
 
+check if syncing just a file or folder...added "/" for folders:
+	now try os.isfile or os.isfolder or something to check and set accordingly...no destination can be file on sources!
+	so make sure to check before puting path into custom box from file manager(shit and from typing it aswel!) 
+
 TO ADD:
 
 add option to find ip address from username giving(has to be on network...possibly with nmap?)
@@ -211,18 +215,22 @@ class Window(QWidget):
 		self.local_src_dir_button = QPushButton("...", self)
 		self.local_src_dir_button.setFixedWidth(20)
 		self.local_src_dir_button.clicked.connect(self.local_src_dir_brow)
+		self.local_src_dir_button.setDisabled(True)
 		# button to open the file browser fro local destination path
 		self.local_dst_dir_button = QPushButton("...", self)
 		self.local_dst_dir_button.setFixedWidth(20)
 		self.local_dst_dir_button.clicked.connect(self.local_dst_dir_brow)
+		self.local_dst_dir_button.setDisabled(True)
 		# button to open the file browser for remote source path
 		self.remote_src_dir_button = QPushButton("...", self)
 		self.remote_src_dir_button.setFixedWidth(20)
 		self.remote_src_dir_button.clicked.connect(self.remote_src_dir_brow)
+		self.remote_src_dir_button.setDisabled(True)
 		# button to open the file browser for remote destination path
 		self.remote_dst_dir_button = QPushButton("...", self)
 		self.remote_dst_dir_button.setFixedWidth(20)
 		self.remote_dst_dir_button.clicked.connect(self.remote_dst_dir_brow)
+		self.remote_dst_dir_button.setDisabled(True)
 
 		# layout for left top row
 		top_row = QHBoxLayout()
@@ -296,49 +304,51 @@ class Window(QWidget):
 	# create file manager object for local source and capture data
 	def local_src_dir_brow(self):
 		self.ls_db = MyFileBrowser()
-		self.ls_db.show()
-		self.ls_db.return_data.connect(self.local_src_dir_brow_recv)
+		self.ls_db.sig.return_data.connect(self.local_src_dir_brow_recv)
 
 	# receive data from file manager object signal and set to local source input
 	def local_src_dir_brow_recv(self, data):
-		self.custom_local_path_src.setText(data)
+		ndata = data + "/"
+		self.custom_local_path_src.setText(ndata)
 
 	# create file manager object for local destination and capture data
 	def local_dst_dir_brow(self):
 		self.ld_db = MyFileBrowser()
-		self.ld_db.show()
-		self.ld_db.return_data.connect(self.local_dst_dir_brow_recv)
+		self.ld_db.sig.return_data.connect(self.local_dst_dir_brow_recv)
 
 	# receive data from file manager object signal and set to local destination input
 	def local_dst_dir_brow_recv(self, data):
-		self.custom_local_path_dst.setText(data)
+		ndata = data + "/"
+		self.custom_local_path_dst.setText(ndata)
 
 	# create file manager object for remote source and capture data
 	def remote_src_dir_brow(self):
 		self.rs_db = MyFileBrowser()
-		self.rs_db.show()
-		self.rs_db.return_data.connect(self.remote_src_dir_brow_recv)
+		self.rs_db.sig.return_data.connect(self.remote_src_dir_brow_recv)
 
 	# receive data from file manager object signal and set to remote source input
 	def remote_src_dir_brow_recv(self, data):
-		self.custom_remote_path_src.setText(data)
+		ndata = data + "/"
+		self.custom_remote_path_src.setText(ndata)
 
 	# create file manager object for remote destination and capture data
 	def remote_dst_dir_brow(self):
 		self.rd_db = MyFileBrowser()
-		self.rd_db.show()
-		self.rd_db.return_data.connect(self.remote_dst_dir_brow_recv)
+		self.rd_db.sig.return_data.connect(self.remote_dst_dir_brow_recv)
 
 	# receive data from file manager object signal and set to remote destination input
 	def remote_dst_dir_brow_recv(self, data):
 		# experimental-get remote user path and try just swapping usernames given paths should be same bar username
 		if self.dest_user_input.text() == "":
+			self.rd_db.close()
+			self.show_user_info.setStyleSheet("color: red")
 			self.show_user_info.setText("This Option only works if destination Username has been input")
 			QTest.qWait(3000)
+			self.show_user_info.setStyleSheet("color:white")
 			self.show_user_info.setText("")
 			return
 		else:
-			new_data = data.replace(self.user, self.dest_user_input.text())
+			new_data = data.replace(self.user, self.dest_user_input.text()) + "/"
 			self.custom_remote_path_dst.setText(new_data)
 
 	# (on by default) button to enable rsync command instead of scp
@@ -381,20 +391,28 @@ class Window(QWidget):
 			self.what_to_sync.append(3)
 			self.custom_local_path_src.setDisabled(False)
 			self.custom_local_path_dst.setDisabled(False)
+			self.local_src_dir_button.setDisabled(False)
+			self.local_dst_dir_button.setDisabled(False)
 		else:
 			self.what_to_sync.remove(3)
 			self.custom_local_path_src.setDisabled(True)
 			self.custom_local_path_dst.setDisabled(True)
+			self.local_src_dir_button.setDisabled(True)
+			self.local_dst_dir_button.setDisabled(True)
 
 	def get_header_4(self, state):
 		if state == Qt.Checked:
 			self.what_to_sync.append(4)
 			self.custom_remote_path_src.setDisabled(False)
 			self.custom_remote_path_dst.setDisabled(False)
+			self.remote_src_dir_button.setDisabled(False)
+			self.remote_dst_dir_button.setDisabled(False)
 		else:
 			self.what_to_sync.remove(4)
 			self.custom_remote_path_src.setDisabled(True)
 			self.custom_remote_path_dst.setDisabled(True)
+			self.remote_src_dir_button.setDisabled(True)
+			self.remote_dst_dir_button.setDisabled(True)
 
 	# sets the correct option/flag from user input and returns option for use in sync
 	def get_options(self):
@@ -427,23 +445,28 @@ class Window(QWidget):
 		self.custom_local_path_src.setText("")
 		self.custom_local_path_dst.setText("")
 		self.show_user_info.setText("")
+		self.show_user_info.setStyleSheet("color: white")
 		self.options = None
 		self.custom_local_source_path = ""
 		self.custom_local_dest_path = ""
 		self.custom_remote_source_path = ""
 		self.custom_remote_dest_path = ""
+		self.any_errors =False
 
 	# clears the output display only when clear display button is pressed
 	def clear_display(self):
 		self.output_display.setText("")
 		self.update()
 
+	def was_there_errors(self, err):
+		self.any_errors = err
+
 	# used to print to display what output is showing after sync is complete
-	@pyqtSlot(int, str, str)
+	# @pyqtSlot(int, str, str)
 	def print_sync(self, header, output, errors):
 		# show what sync option/header was used for corresponding output and then display it
 		headers = {
-			1: "Documents(linux > linux)", 2: "Downloads(linux > Linux)",
+			1: "Documents (Linux > Linux)", 2: "Downloads (Linux > Linux)",
 			3: "Custom Local Paths", 4: "Custom Remote Paths"}
 		# if only 1 sync option is getting used this will run
 		if self.output_display.toPlainText() == "":
@@ -451,11 +474,10 @@ class Window(QWidget):
 				self.output_display.setText("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                            " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
 				                            + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
-				self.any_errors = True
 
 			else:
-				self.output_display.setText("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-				                            " sync" + "\n" + "#" * 79 + "\n\n" + output)
+				self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
+				                            " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
 		# if multiple syncs are getting run it will append the ouputs together for display
 		else:
@@ -463,11 +485,10 @@ class Window(QWidget):
 				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
 				                           + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
-				self.any_errors = True
 
 			else:
-				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-				                           " sync" + "\n" + "#" * 79 + "\n\n" + output)
+				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
+				                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
 		self.update()
 
@@ -492,8 +513,10 @@ class Window(QWidget):
 	def syncer(self):
 		# make sure user has ticked atleast 1 of the sync options, return if not
 		if not self.what_to_sync:
+			self.show_user_info.setStyleSheet("color: darkred")
 			self.show_user_info.setText("Please choose options to begin syncing")
 			QTest.qWait(3000)
+			self.show_user_info.setStyleSheet("color: white")
 			self.show_user_info.setText("")
 			self.update()
 			return
@@ -510,15 +533,19 @@ class Window(QWidget):
 			# if sync is remote make sure all user inputs required are filled
 			if h in to_check:
 				if not self.custom_remote_source_and_dest_okay:  # make sure custom paths have user input
+					self.show_user_info.setStyleSheet("color: darkred")
 					self.show_user_info.setText("Please input custom paths before syncing")
 					QTest.qWait(3000)
+					self.show_user_info.setStyleSheet("color: white")
 					self.show_user_info.setText("")
 					self.update()
 					self.custom_remote_source_and_dest_okay = True
 					return
 				if not self.user_and_dest_okay:  # make sure username and ip address have user input
+					self.show_user_info.setStyleSheet("color: darkred")
 					self.show_user_info.setText("Please input username or ip address before syncing")
 					QTest.qWait(3000)
+					self.show_user_info.setStyleSheet("color: white")
 					self.show_user_info.setText("")
 					self.update()
 					self.user_and_dest_okay = True
@@ -526,8 +553,10 @@ class Window(QWidget):
 			# local sync only, make sure custom paths have user input
 			elif h == 3:
 				if not self.custom_local_source_and_dest_okay:
+					self.show_user_info.setStyleSheet("color: darkred")
 					self.show_user_info.setText("Please input custom paths before syncing")
 					QTest.qWait(3000)
+					self.show_user_info.setStyleSheet("color: white")
 					self.show_user_info.setText("")
 					self.update()
 					self.custom_local_source_and_dest_okay = True
@@ -539,21 +568,38 @@ class Window(QWidget):
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
 			                           self.custom_local_dest_path, self.custom_local_source_path,
 			                           self.custom_remote_dest_path, self.custom_remote_source_path)
+			# signal to let show_user_info know if any errors occured changing color and user feedback
+			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
 			self.worker.signals.finished.connect(self.print_sync)
 			# start the thread/sync
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
 		self.pool.waitForDone()
+		self.sync_complete()
+
+	def sync_complete(self):
+		QTest.qWait(100)
 		if self.any_errors:
+			self.show_user_info.setStyleSheet("color: yellow")
 			self.show_user_info.setText("Sync Completed!\nbut...\n Errors have occured!")
+			QTest.qWait(8000)
+			self.show_user_info.setText("")
+			self.show_user_info.setStyleSheet("color: white")
 		else:
+			self.show_user_info.setStyleSheet("color: green")
 			self.show_user_info.setText("Sync Completed!")
+			QTest.qWait(8000)
+			self.show_user_info.setText("")
+			self.show_user_info.setStyleSheet("color: white")
+		self.any_errors =False
 
 
 # object used for signals when finished to start printing to display
 class WorkerSignals(QObject):
 	finished = pyqtSignal(int, str, str)
+	# used to let show_user_info if any errors occured for coloring and feedback
+	sync_errors = pyqtSignal(bool)
 
 
 # object for running the sync commands
@@ -577,7 +623,7 @@ class SyncThatShit(QRunnable):
 		self.dest_path = ""
 		self.destination = ""
 		self.output = ""
-		self.errors = None
+		self.errors = ""
 		self.signals = WorkerSignals()
 		self.sync_sort()
 
@@ -618,6 +664,8 @@ class SyncThatShit(QRunnable):
 			# get command output and errors for use to display in ui
 			self.output, self.errors = p.communicate()
 			# signal connected to print_sync, displaying the outputs of syncs
+			if self.errors != "":
+				self.signals.sync_errors.emit(True)
 			self.signals.finished.emit(self.header, self.output, self.errors)
 		# this will not be visible at all in this gui version (FIX THIS)
 		except Exception as e:
@@ -661,34 +709,42 @@ class SyncThatShit(QRunnable):
 			pass
 
 
-class MyFileBrowser(QTreeView):
+class BrowserSignal(QObject):
 	return_data = pyqtSignal(str)
 
+
+class MyFileBrowser(QWidget):
+	# return_data = pyqtSignal(str)
+
 	def __init__(self):
-		QTreeView.__init__(self)
+		QWidget.__init__(self)
+		self.view = QTreeView()
+		self.sig = BrowserSignal()
 		self.setWindowTitle("Custom Path File Manager")
 		path = "/"
 		self.file_path = ""
 		self.model = QFileSystemModel()
 		self.model.setRootPath(QDir.rootPath())
 		self.setGeometry(920, 200, 1000, 600)
-		self.setModel(self.model)
-		self.setRootIndex(self.model.index(path))
-		self.setSortingEnabled(True)
-		self.setColumnWidth(0, 650)
-		self.sortByColumn(0, Qt.AscendingOrder)
+		self.view.setModel(self.model)
+		self.view.setRootIndex(self.model.index(path))
+		self.view.setSortingEnabled(True)
+		self.view.setColumnWidth(0, 650)
+		self.view.sortByColumn(0, Qt.AscendingOrder)
 		self.open_button = QPushButton("Open", self)
 		self.open_button.clicked.connect(self.return_path)
+		self.open_button.setFixedWidth(200)
 
-		self.v_box = QVBoxLayout(self)
-		self.v_box.addWidget(self.open_button)
-		self.v_box.setAlignment(Qt.AlignBottom)
+		self.v_box = QVBoxLayout()
+		self.v_box.addWidget(self.view)
+		self.v_box.addWidget(self.open_button, alignment=Qt.AlignCenter)
 		self.setLayout(self.v_box)
+		self.show()
 
 	def return_path(self):
-		fp = self.selectedIndexes()[0]
+		fp = self.view.selectedIndexes()[0]
 		self.file_path = self.model.filePath(fp)
-		self.return_data.emit(self.file_path)
+		self.sig.return_data.emit(self.file_path)
 		self.close()
 
 
