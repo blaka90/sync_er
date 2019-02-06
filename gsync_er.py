@@ -20,9 +20,6 @@ TO FIX:
 
 encoding issue when try running as python3 signal sends bytes instead of unicode
 
-remove self.options from syncer when running the command(scp doesn't take options dipshit)
-also may need to add wildcard * after path (/home/user/Documents/*) ????
-
 check if syncing just a file or folder...added "/" for folders:
 	now try os.isfile or os.isfolder or something to check and set accordingly...no destination can be file on sources!
 	so make sure to check before puting path into custom box from file manager(shit and from typing it aswel!) 
@@ -39,6 +36,10 @@ may have to make fullscreen if adding more features or going to get crowded
 try make compatible with windows and mac:
 	Documents option maps to os dependent path documents, same for downloads etc
 	including adding all the standards...pictures music videos etc
+	or:
+		create windows/mac/linux buttons under each custom path and translate path(if possible) for given os
+		
+progressbar (probably under the display window)
 	
 """
 
@@ -328,7 +329,10 @@ class Window(QWidget):
 
 	# receive data from file manager object signal and set to remote source input
 	def remote_src_dir_brow_recv(self, data):
-		ndata = data + "/"
+		if self.command == "rsync":
+			ndata = data + "/"
+		else:
+			ndata = data + "/."
 		self.custom_remote_path_src.setText(ndata)
 
 	# create file manager object for remote destination and capture data
@@ -452,12 +456,15 @@ class Window(QWidget):
 		self.custom_remote_source_path = ""
 		self.custom_remote_dest_path = ""
 		self.any_errors =False
+		self.rsync_command()
+		self.rsync_button.setChecked(True)
 
 	# clears the output display only when clear display button is pressed
 	def clear_display(self):
 		self.output_display.setText("")
 		self.update()
 
+	# used as a flag to display correct user feedback if errors in sync
 	def was_there_errors(self, err):
 		self.any_errors = err
 
@@ -471,9 +478,9 @@ class Window(QWidget):
 		# if only 1 sync option is getting used this will run
 		if self.output_display.toPlainText() == "":
 			if len(errors) != 0:
-				self.output_display.setText("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-				                            " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
-				                            + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
+				self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
+				                            " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+				                            + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + str(errors))
 
 			else:
 				self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
@@ -482,9 +489,9 @@ class Window(QWidget):
 		# if multiple syncs are getting run it will append the ouputs together for display
 		else:
 			if len(errors) != 0:
-				self.output_display.append("#" * 79 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-				                           " sync" + "\n" + "#" * 79 + "\n\n" + output + "\n\n" + "~" * 93 + "\n"
-				                           + " " * 100 + "ERRORS" + "\n" + "~" * 93 + "\n\n" + str(errors))
+				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
+				                           " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+				                           + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + str(errors))
 
 			else:
 				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
@@ -658,11 +665,14 @@ class SyncThatShit(QRunnable):
 						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				else:
-					p = subprocess.Popen([self.command, "-r", self.source_path, self.destination],
+					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
 					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 			# get command output and errors for use to display in ui
 			self.output, self.errors = p.communicate()
+			# clean up scp output
+			if self.command == "scp":
+				self.get_scp_output()
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
 				self.signals.sync_errors.emit(True)
@@ -678,7 +688,7 @@ class SyncThatShit(QRunnable):
 			self.options = "-Paiurv"
 		elif self.options == "c":  # compress
 			self.options = "-Paiurvz"
-		elif self.options == "del":  # delete outdated
+		elif self.options == "del":  # delete destination dir before copying
 			self.options = "-Paiurv"
 			self.delete = True
 
@@ -707,6 +717,34 @@ class SyncThatShit(QRunnable):
 			# self.source_path = "/Users/" + self.source + "/Desktop/films/"
 			# self.dest_path = "/User/Library/Artworks/*"
 			pass
+
+	# scp is weird with output so this frankenstein will have to do for now
+	def get_scp_output(self):
+		out_buff = ""
+		err_buff = ""
+		for line in self.errors.splitlines():
+			if line.startswith("Executing"):
+				out_buff += line + "\n"
+			elif line.startswith("OpenSSH"):
+				out_buff += line + "\n\n"
+			elif line.startswith("Entering"):
+				out_buff += line + "\n"
+			elif line.startswith("Sink"):
+				out_buff += line + "\n"
+			elif line.startswith("Sending"):
+				out_buff += line + "\n"
+			elif line.startswith("Transferred"):
+				out_buff += "\n" + line + "\n"
+			elif line.startswith("Bytes"):
+				out_buff += line
+			elif line.startswith("ssh"):
+				err_buff += line + "\n"
+			elif line.startswith("lost"):
+				err_buff += line + "\n"
+			else:
+				continue
+		self.output = out_buff
+		self.errors = err_buff
 
 
 class BrowserSignal(QObject):
