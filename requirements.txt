@@ -1,3 +1,4 @@
+scp
 paramiko
 netifaces
 pyqt5

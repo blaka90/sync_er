@@ -9,7 +9,7 @@ import sys
 from getpass import getuser, getpass
 import netifaces as ni
 import paramiko
-import socket
+from scp import SCPClient
 
 '''
 ###################################################################################################################
@@ -105,7 +105,7 @@ class Window(QWidget):
 		dark_palette.setColor(QPalette.HighlightedText, Qt.black)
 		qApp.setPalette(dark_palette)
 		qApp.setStyleSheet("QToolTip { color: #ffffff; background-color: "
-						   "#2a82da; border: 1px solid white; }")
+		                   "#2a82da; border: 1px solid white; }")
 
 	@staticmethod
 	def path():  # change into current working dirctory wherever program is ran from
@@ -135,7 +135,7 @@ class Window(QWidget):
 				if ip.startswith("192"):
 					self.user_ip = ip
 					return self.user_ip
-			except ValueError as er:
+			except (KeyError, ValueError) as er:
 				print("Failed to get User IP Address")
 				print(er)
 
@@ -162,14 +162,22 @@ class Window(QWidget):
 		# button for changing command to rsync (default)
 		self.rsync_button = QPushButton("Rsync")
 		self.rsync_button.setCheckable(True)
-		self.rsync_button.setChecked(True)
+		if self.operating_system == "linux":
+			self.rsync_button.setChecked(True)
+		elif self.operating_system == "mac":
+			self.rsync_button.setChecked(True)
+		else:
+			self.rsync_button.setChecked(False)
 		self.rsync_button.setStyleSheet('color: green')
 		self.rsync_button.setFixedWidth(100)
 		self.rsync_button.clicked.connect(self.rsync_command)
 		# button for changing command to scp
 		self.scp_button = QPushButton("Scp")
 		self.scp_button.setCheckable(True)
-		self.scp_button.setChecked(False)
+		if self.operating_system == "windows":
+			self.scp_button.setChecked(True)
+		else:
+			self.scp_button.setChecked(False)
 		self.scp_button.setStyleSheet('color: darkred')
 		self.scp_button.setFixedWidth(100)
 		self.scp_button.clicked.connect(self.scp_command)
@@ -527,23 +535,23 @@ class Window(QWidget):
 		if self.output_display.toPlainText() == "":
 			if len(errors) != 0:
 				self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-											" sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
-											+ " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
+				                            " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+				                            + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
 			else:
 				self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-											" sync" + "\n" + "#" * 77 + "\n\n" + output)
+				                            " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
 		# if multiple syncs are getting run it will append the ouputs together for display
 		else:
 			if len(errors) != 0:
 				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-										   " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
-										   + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
+				                           " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+				                           + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
 			else:
 				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-										   " sync" + "\n" + "#" * 77 + "\n\n" + output)
+				                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
 		self.update()
 
@@ -631,8 +639,8 @@ class Window(QWidget):
 			QTest.qWait(1000)
 			# creates the sync object, passing it all required input for sync
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
-									   self.custom_local_dest_path, self.custom_local_source_path,
-									   self.custom_remote_dest_path, self.custom_remote_source_path)
+			                           self.custom_local_dest_path, self.custom_local_source_path,
+			                           self.custom_remote_dest_path, self.custom_remote_source_path)
 			# signal to let show_user_info know if any errors occured changing color and user feedback
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
@@ -706,7 +714,7 @@ class SyncThatShit(QRunnable):
 				# just because you can't use scp locally
 				self.command = "rsync"
 				p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
-									 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 			# obsolete from cli verion(will be updated to usuable option tho)
 			elif self.header == 14:
@@ -722,12 +730,12 @@ class SyncThatShit(QRunnable):
 							stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 					else:
 						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
-											 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 				else:
-					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					# self.scp_copy()
+					# p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
+					# stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					self.scp_copy()
 
 			# get command output and errors for use to display in ui
 			self.output, self.errors = p.communicate()
@@ -746,16 +754,16 @@ class SyncThatShit(QRunnable):
 			self.signals.finished.emit(self.header, self.output, err)
 
 	def scp_copy(self):
-		hostname = self.dest_ip  # or is it self.dest_user??
+		hostname = self.dest_ip
 		port = 22
-		'''
 		client = paramiko.SSHClient()
-		# client.load_system_host_keys()
-		client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+		client.load_system_host_keys()
 		client.connect(hostname=hostname, port=port, username=self.dest_user)
-		stfp = client.open_sftp()
-		stfp.put(self.source_path, self.dest_path)
-		stfp.close()
+		scp = SCPClient(client.get_transport())
+		# scp.put(self.source_path, self.dest_path)
+		# scp.get(self.dest_path, self.source_path)
+		scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
+		scp.close()
 		client.close()
 		'''
 		t = paramiko.Transport((hostname, port))
@@ -763,7 +771,7 @@ class SyncThatShit(QRunnable):
 		sftp = paramiko.SFTPClient.from_transport(t)
 		sftp.put(self.source_path, self.dest_path)
 		sftp.close()
-		t.close()
+		t.close()'''
 
 	# sets the paths of the sync depending on what sync option/header is used
 	def sync_sort(self):
