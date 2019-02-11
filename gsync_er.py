@@ -21,7 +21,15 @@ from functools import partial
 __version__ = "1.6.2"
 
 '''
+NEED TO IMPLEMENT:
+	find ip button that is connected to self.get_saved_ip()...get saved ip and set in self.dest_ip_input
+	made radio buttons for destination OS type already...just implement self.get_dest_os()
+	
+
 TO FIX:
+
+add check for if os windows and trying to use rsync command 
+	-either don't let or specify they must have installed and know what they doing
 
 check if syncing just a file or folder: DONE now...
 	make sure to check before puting path into custom box from typing it aswel!) 
@@ -40,6 +48,10 @@ JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-the way the path is put into custom input box will need a rewrite
 
 TO ADD:
+
+add option for all custom paths whether to sync just file, folder or contents of folder
+	- practically half implemented already just modify get_broswer_recv accordingly 
+		-make sure to check before puting path into custom box from typing it aswel!)
 
 add option to find ip address from username giving(has to be on network...possibly with nmap?)
 or save ip address of username and try it when that username is used...enter manual otherwise until saved
@@ -143,11 +155,22 @@ class Window(QWidget):
 
 	# initilize the user interface
 	def init_ui(self):
+		"""all below code is (roughly) in decending visual order"""
+
 		# set the name, icon and size of main window
 		self.setWindowTitle("Sync_er")
 		self.setWindowIcon(QIcon("syncer.png"))
 		self.setGeometry(150, 100, 1400, 800)
 		self.setFixedSize(1400, 800)
+
+		"""right side of gui"""
+		# not used as a textedit, but used to display output from syncs
+		self.output_display = QTextEdit(self)
+		self.output_display.setFixedWidth(800)
+		self.output_display.setFixedHeight(750)
+		self.output_display.setText(self.welcome_banner())
+
+		"""left side of gui"""
 
 		# label for showing the users username
 		self.user_label = QLabel(self)
@@ -164,41 +187,25 @@ class Window(QWidget):
 		# button for changing command to rsync (default)
 		self.rsync_button = QPushButton("Rsync")
 		self.rsync_button.setCheckable(True)
-		if self.operating_system == "linux":
-			self.rsync_button.setChecked(True)
-		elif self.operating_system == "mac":
-			self.rsync_button.setChecked(True)
-		else:
-			self.rsync_button.setChecked(False)
 		self.rsync_button.setStyleSheet('color: green')
 		self.rsync_button.setFixedWidth(100)
 		self.rsync_button.clicked.connect(self.rsync_command)
 		# button for changing command to scp
 		self.scp_button = QPushButton("Scp")
 		self.scp_button.setCheckable(True)
-		if self.operating_system == "windows":
-			self.scp_button.setChecked(True)
-		else:
-			self.scp_button.setChecked(False)
 		self.scp_button.setStyleSheet('color: darkred')
 		self.scp_button.setFixedWidth(100)
 		self.scp_button.clicked.connect(self.scp_command)
 
-		# not used as a textedit, but used to display output from syncs
-		self.output_display = QTextEdit(self)
-		self.output_display.setFixedWidth(800)
-		self.output_display.setFixedHeight(750)
-		self.output_display.setText(self.welcome_banner())
-
-		# the options the user has to sync with (should be adding more later)
-		self.option1 = QCheckBox("1.  Documents (Linux > Linux)", self)
-		self.option1.stateChanged.connect(partial(self.get_header, header=1))
-		self.option2 = QCheckBox("2.  Downloads (Linux > Linux)", self)
-		self.option2.stateChanged.connect(partial(self.get_header, header=2))
-		self.option3 = QCheckBox("3.  Custom Local Paths", self)
-		self.option3.stateChanged.connect(partial(self.get_header, header=3))
-		self.option4 = QCheckBox("4.  Custom Remote Paths", self)
-		self.option4.stateChanged.connect(partial(self.get_header, header=4))
+		if self.operating_system == "linux":
+			self.rsync_button.setChecked(True)
+			self.rsync_command()
+		elif self.operating_system == "mac":
+			self.rsync_button.setChecked(True)
+			self.rsync_command()
+		elif self.operating_system == "windows":
+			self.scp_button.setChecked(True)
+			self.scp_command()
 
 		# label for destination username
 		self.dest_user_label = QLabel(self)
@@ -206,7 +213,7 @@ class Window(QWidget):
 
 		# user input box for the destination usenname
 		self.dest_user_input = QLineEdit(self)
-		self.dest_user_input.setFixedWidth(250)
+		self.dest_user_input.setFixedWidth(220)
 		self.dest_user_input.setPlaceholderText("Username of other computer")
 
 		# label for destination ip address
@@ -215,10 +222,37 @@ class Window(QWidget):
 
 		# user input box for destination ip address
 		self.dest_ip_input = QLineEdit(self)
-		self.dest_ip_input.setFixedWidth(250)
+		self.dest_ip_input.setFixedWidth(220)
 		self.dest_ip_input.setText("192.168.0.")  # I'm lazy
 		self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
+		# experimental lazy way of getting saved ip's
+		self.dest_ip_button = QPushButton("Find IP", self)
+		self.dest_ip_button.setFixedWidth(60)
+		self.dest_ip_button.clicked.connect(self.get_saved_ip)
+
+		# get the os type of destination and later try change path accordingly
+		self.dest_os_label = QLabel(self)
+		self.dest_os_label.setText("Destination OS:")
+		# radio buttons to specify destination OS type
+		# linux default (linuxmasterrace)
+		self.dest_os_linux = QRadioButton("Linux")
+		self.dest_os_linux.setChecked(True)
+		self.dest_os_windows = QRadioButton("Windows")
+		self.dest_os_mac = QRadioButton("Mac")
+		# group just these os radio buttons together
+		self.os_radio_group = QButtonGroup(self)
+		self.os_radio_group.addButton(self.dest_os_linux)
+		self.os_radio_group.addButton(self.dest_os_windows)
+		self.os_radio_group.addButton(self.dest_os_mac)
+		"""
+		# group just these sync option radio buttons together
+		self.sync_radio_group = QButtonGroup(self)
+		self.sync_radio_group.addButton(self.sync_option1)
+		self.sync_radio_group.addButton(self.sync_option2)
+		self.sync_radio_group.addButton(self.sync_option3)
+		self.sync_radio_group.addButton(self.sync_option4)
+		"""
 		# label for different options/flags used for sync
 		self.sync_option_label = QLabel(self)
 		self.sync_option_label.setText("Syncing Options:")
@@ -238,37 +272,34 @@ class Window(QWidget):
 		self.sync_option4_input.setPlaceholderText("eg. -Paiurv")
 		self.sync_option4_input.setDisabled(True)
 
-		# label used to show the user some feedback in many instances
-		self.show_user_info = QLabel(self)
-		self.show_user_info.setAlignment(Qt.AlignCenter)
-
-		# sync button, starts the process of syncing all user input
-		self.sync_button = QPushButton("Sync", self)
-		self.sync_button.clicked.connect(self.syncer)
-		# button to clear all user input
-		self.clear_settings_button = QPushButton("Clear Settings", self)
-		self.clear_settings_button.clicked.connect(self.clear_settings)
-		# button to clear the display  only
-		self.clear_display_button = QPushButton("Clear Display", self)
-		self.clear_display_button.clicked.connect(self.clear_display)
-
-		# user input box for the source of remote syncs
-		self.custom_remote_path_src = QLineEdit(self)
-		self.custom_remote_path_src.setPlaceholderText("Custom Remote Source Path")
-		self.custom_remote_path_src.setDisabled(True)
-		# user input box for the destination of remote syncs
-		self.custom_remote_path_dst = QLineEdit(self)
-		self.custom_remote_path_dst.setPlaceholderText("Custom Remote Destination Path")
-		self.custom_remote_path_dst.setDisabled(True)
+		# the options the user has to sync with (should be adding more later)
+		self.option1 = QCheckBox("1.  Documents (Linux > Linux)", self)
+		self.option1.stateChanged.connect(partial(self.get_header, header=1))
+		self.option2 = QCheckBox("2.  Downloads (Linux > Linux)", self)
+		self.option2.stateChanged.connect(partial(self.get_header, header=2))
+		self.option3 = QCheckBox("3.  Custom Local Paths", self)
+		self.option3.stateChanged.connect(partial(self.get_header, header=3))
+		self.option4 = QCheckBox("4.  Custom Remote Paths", self)
+		self.option4.stateChanged.connect(partial(self.get_header, header=4))
 
 		# user input box for the source of local syncs
 		self.custom_local_path_src = QLineEdit(self)
-		self.custom_local_path_src.setPlaceholderText("Custom Local Source Path")
+		self.custom_local_path_src.setPlaceholderText("Type Full Source Path   or    press -->")
 		self.custom_local_path_src.setDisabled(True)
 		# user input box for the destination of local syncs
 		self.custom_local_path_dst = QLineEdit(self)
-		self.custom_local_path_dst.setPlaceholderText("Custom Local Destination Path")
+		self.custom_local_path_dst.setPlaceholderText("Type Full Destination Path   or      -->")
 		self.custom_local_path_dst.setDisabled(True)
+
+		# user input box for the source of remote syncs
+		self.custom_remote_path_src = QLineEdit(self)
+		self.custom_remote_path_src.setPlaceholderText("Type Full Source Path   or    press -->")
+		self.custom_remote_path_src.setDisabled(True)
+		# user input box for the destination of remote syncs
+		self.custom_remote_path_dst = QLineEdit(self)
+		self.custom_remote_path_dst.setPlaceholderText("Type Full Destination Path   or      -->")
+		self.custom_remote_path_dst.setDisabled(True)
+
 		# button to open the file browser for local source path
 		self.custom_local_path_src_button = QPushButton("...", self)
 		self.custom_local_path_src_button.setFixedWidth(20)
@@ -289,6 +320,22 @@ class Window(QWidget):
 		self.custom_remote_path_dst_button.setFixedWidth(20)
 		self.custom_remote_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="remote_dest"))
 		self.custom_remote_path_dst_button.setDisabled(True)
+
+		# label used to show the user some feedback in many instances
+		self.show_user_info = QLabel(self)
+		self.show_user_info.setAlignment(Qt.AlignCenter)
+
+		# sync button, starts the process of syncing all user input
+		self.sync_button = QPushButton("Sync", self)
+		self.sync_button.clicked.connect(self.syncer)
+		# button to clear all user input
+		self.clear_settings_button = QPushButton("Clear Settings", self)
+		self.clear_settings_button.clicked.connect(self.clear_settings)
+		# button to clear the display  only
+		self.clear_display_button = QPushButton("Clear Display", self)
+		self.clear_display_button.clicked.connect(self.clear_display)
+
+		"""start of layouts"""
 
 		# layout for left top row
 		top_row = QHBoxLayout()
@@ -317,21 +364,34 @@ class Window(QWidget):
 		h_box_buttons.addWidget(self.clear_settings_button)
 		h_box_buttons.addWidget(self.clear_display_button)
 
+		# horizontal layout for os radio buttons inside grid layout
+		h_box_os_buttons = QHBoxLayout()
+		# h_box_os_buttons.setContentsMargins(50, 0, 0, 0)
+		h_box_os_buttons.addWidget(self.dest_os_linux)
+		h_box_os_buttons.addWidget(self.dest_os_windows)
+		h_box_os_buttons.addWidget(self.dest_os_mac)
+
 		# grid layout for most of the user input and options
 		grid = QGridLayout()
 		grid.setSpacing(10)
 		grid.setAlignment(Qt.AlignTop)
-		grid.setContentsMargins(60, 60, 60, 60)
+		grid.setContentsMargins(60, 60, 30, 60)
 		grid.addWidget(self.dest_user_label, 0, 0)
 		grid.addWidget(self.dest_user_input, 0, 1)
 		grid.addWidget(self.dest_ip_label, 1, 0)
 		grid.addWidget(self.dest_ip_input, 1, 1)
-		grid.addWidget(self.sync_option_label, 2, 0)
-		grid.addWidget(self.sync_option1, 3, 0)
-		grid.addWidget(self.sync_option2, 3, 1)
-		grid.addWidget(self.sync_option3, 4, 0)
-		grid.addWidget(self.sync_option4, 4, 1)
-		grid.addWidget(self.sync_option4_input, 5, 1)
+		grid.addWidget(self.dest_ip_button, 1, 2)
+		grid.addWidget(self.dest_os_label, 2, 0)
+		grid.addLayout(h_box_os_buttons, 2, 1)
+		# grid.addWidget(self.dest_os_linux, 3, 0)
+		# grid.addWidget(self.dest_os_windows, 3, 1)
+		# grid.addWidget(self.dest_os_mac, 3, 2)
+		grid.addWidget(self.sync_option_label, 3, 0)
+		grid.addWidget(self.sync_option1, 4, 0)
+		grid.addWidget(self.sync_option2, 4, 1)
+		grid.addWidget(self.sync_option3, 5, 0)
+		grid.addWidget(self.sync_option4, 5, 1)
+		grid.addWidget(self.sync_option4_input, 6, 1)
 
 		# vertical layout for the radio buttons syncing options
 		v_box_options = QVBoxLayout()
@@ -359,6 +419,13 @@ class Window(QWidget):
 
 		# set the layout
 		self.setLayout(h_box)
+
+	def get_saved_ip(self):
+		self.show_user_info.setText("implement me!")
+
+	def get_dest_os(self):
+		# implement pretty much the same way get_options is
+		self.show_user_info.setText("implement me!")
 
 	# create file manager object for local/remote source/destination and capture data
 	def get_browser(self, custom_path):
@@ -469,10 +536,11 @@ class Window(QWidget):
 		self.output_display.setText("")
 		self.dest_user_input.setText("")
 		self.dest_ip_input.setText("")
+		self.dest_os_linux.setChecked(True)
 		self.sync_option1.setChecked(True)
-		self.sync_option2.setChecked(False)
-		self.sync_option3.setChecked(False)
-		self.sync_option4.setChecked(False)
+		# self.sync_option2.setChecked(False)
+		# self.sync_option3.setChecked(False)
+		# self.sync_option4.setChecked(False)
 		self.sync_option4_input.setText("")
 		self.option1.setChecked(False)
 		self.option2.setChecked(False)
