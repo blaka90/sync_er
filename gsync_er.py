@@ -10,6 +10,7 @@ from getpass import getuser, getpass
 import netifaces as ni
 import paramiko
 from scp import SCPClient
+from functools import partial
 
 '''
 ###################################################################################################################
@@ -17,19 +18,20 @@ from scp import SCPClient
 ###################################################################################################################
 '''
 
-version = 1.6
+__version__ = "1.6.2"
 
 '''
 TO FIX:
 
-check if syncing just a file or folder...added "/" for folders:
-	now try os.isfile or os.isfolder or something to check and set accordingly...
-	so make sure to check before puting path into custom box from file manager(shit and from typing it aswel!) 
+check if syncing just a file or folder: DONE now...
+	make sure to check before puting path into custom box from typing it aswel!) 
 	
-refactor opening the file browser pass a str to list of what it is then to the function then connect the button from 
-	there instead of having a method for each one! (import partial from diary?)
+	-done for scp need to do for rsync
+	-need to capture output for scp? stdin.read()?
+	-need to handle incase passwordless ssh not setup?
+		-check if authorzed_keys exists(meaning scp is setup) and maybe search it for dest user to make sure
+		-open qdialogInput if isn't and pass password to SyncThatShit
 
-clean up the names of variables...make everything more clear! explain better what each is
 	
 JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
@@ -190,13 +192,13 @@ class Window(QWidget):
 
 		# the options the user has to sync with (should be adding more later)
 		self.option1 = QCheckBox("1.  Documents (Linux > Linux)", self)
-		self.option1.stateChanged.connect(self.get_header_1)
+		self.option1.stateChanged.connect(partial(self.get_header, header=1))
 		self.option2 = QCheckBox("2.  Downloads (Linux > Linux)", self)
-		self.option2.stateChanged.connect(self.get_header_2)
+		self.option2.stateChanged.connect(partial(self.get_header, header=2))
 		self.option3 = QCheckBox("3.  Custom Local Paths", self)
-		self.option3.stateChanged.connect(self.get_header_3)
+		self.option3.stateChanged.connect(partial(self.get_header, header=3))
 		self.option4 = QCheckBox("4.  Custom Remote Paths", self)
-		self.option4.stateChanged.connect(self.get_header_4)
+		self.option4.stateChanged.connect(partial(self.get_header, header=4))
 
 		# label for destination username
 		self.dest_user_label = QLabel(self)
@@ -268,25 +270,25 @@ class Window(QWidget):
 		self.custom_local_path_dst.setPlaceholderText("Custom Local Destination Path")
 		self.custom_local_path_dst.setDisabled(True)
 		# button to open the file browser for local source path
-		self.local_src_dir_button = QPushButton("...", self)
-		self.local_src_dir_button.setFixedWidth(20)
-		self.local_src_dir_button.clicked.connect(self.local_src_dir_brow)
-		self.local_src_dir_button.setDisabled(True)
+		self.custom_local_path_src_button = QPushButton("...", self)
+		self.custom_local_path_src_button.setFixedWidth(20)
+		self.custom_local_path_src_button.clicked.connect(partial(self.get_browser, custom_path="local_source"))
+		self.custom_local_path_src_button.setDisabled(True)
 		# button to open the file browser fro local destination path
-		self.local_dst_dir_button = QPushButton("...", self)
-		self.local_dst_dir_button.setFixedWidth(20)
-		self.local_dst_dir_button.clicked.connect(self.local_dst_dir_brow)
-		self.local_dst_dir_button.setDisabled(True)
+		self.custom_local_path_dst_button = QPushButton("...", self)
+		self.custom_local_path_dst_button.setFixedWidth(20)
+		self.custom_local_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="local_dest"))
+		self.custom_local_path_dst_button.setDisabled(True)
 		# button to open the file browser for remote source path
-		self.remote_src_dir_button = QPushButton("...", self)
-		self.remote_src_dir_button.setFixedWidth(20)
-		self.remote_src_dir_button.clicked.connect(self.remote_src_dir_brow)
-		self.remote_src_dir_button.setDisabled(True)
+		self.custom_remote_path_src_button = QPushButton("...", self)
+		self.custom_remote_path_src_button.setFixedWidth(20)
+		self.custom_remote_path_src_button.clicked.connect(partial(self.get_browser, custom_path="remote_source"))
+		self.custom_remote_path_src_button.setDisabled(True)
 		# button to open the file browser for remote destination path
-		self.remote_dst_dir_button = QPushButton("...", self)
-		self.remote_dst_dir_button.setFixedWidth(20)
-		self.remote_dst_dir_button.clicked.connect(self.remote_dst_dir_brow)
-		self.remote_dst_dir_button.setDisabled(True)
+		self.custom_remote_path_dst_button = QPushButton("...", self)
+		self.custom_remote_path_dst_button.setFixedWidth(20)
+		self.custom_remote_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="remote_dest"))
+		self.custom_remote_path_dst_button.setDisabled(True)
 
 		# layout for left top row
 		top_row = QHBoxLayout()
@@ -297,16 +299,16 @@ class Window(QWidget):
 		# horizontal layout for custom remote user path input boxes
 		h_box_remote_paths = QHBoxLayout()
 		h_box_remote_paths.addWidget(self.custom_remote_path_src)
-		h_box_remote_paths.addWidget(self.remote_src_dir_button)
+		h_box_remote_paths.addWidget(self.custom_remote_path_src_button)
 		h_box_remote_paths.addWidget(self.custom_remote_path_dst)
-		h_box_remote_paths.addWidget(self.remote_dst_dir_button)
+		h_box_remote_paths.addWidget(self.custom_remote_path_dst_button)
 
 		# horizontal layout for custom local user path input boxes
 		h_box_local_paths = QHBoxLayout()
 		h_box_local_paths.addWidget(self.custom_local_path_src)
-		h_box_local_paths.addWidget(self.local_src_dir_button)
+		h_box_local_paths.addWidget(self.custom_local_path_src_button)
 		h_box_local_paths.addWidget(self.custom_local_path_dst)
-		h_box_local_paths.addWidget(self.local_dst_dir_button)
+		h_box_local_paths.addWidget(self.custom_local_path_dst_button)
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
@@ -331,7 +333,7 @@ class Window(QWidget):
 		grid.addWidget(self.sync_option4, 4, 1)
 		grid.addWidget(self.sync_option4_input, 5, 1)
 
-		# vertical layout for the actual syncing options
+		# vertical layout for the radio buttons syncing options
 		v_box_options = QVBoxLayout()
 		v_box_options.addWidget(self.option1)
 		v_box_options.addWidget(self.option2)
@@ -358,58 +360,48 @@ class Window(QWidget):
 		# set the layout
 		self.setLayout(h_box)
 
-	# create file manager object for local source and capture data
-	def local_src_dir_brow(self):
-		self.ls_db = MyFileBrowser(self.operating_system)
-		self.ls_db.sig.return_data.connect(self.local_src_dir_brow_recv)
+	# create file manager object for local/remote source/destination and capture data
+	def get_browser(self, custom_path):
+		if custom_path == "remote_dest":
+			if self.dest_user_input.text() == "":
+				self.show_user_info.setStyleSheet("color: red")
+				self.show_user_info.setText("This Option only works if destination Username has been input")
+				QTest.qWait(3000)
+				self.show_user_info.setStyleSheet("color:white")
+				self.show_user_info.setText("")
+				return
+			else:
+				self.brow = MyFileBrowser(self.operating_system)
+				self.brow.sig.return_data.connect(partial(self.get_browser_recv, custom_path=custom_path))
+		else:
+			self.brow = MyFileBrowser(self.operating_system)
+			self.brow.sig.return_data.connect(partial(self.get_browser_recv, custom_path=custom_path))
 
-	# receive data from file manager object signal and set to local source input
-	def local_src_dir_brow_recv(self, data):
-		ndata = data + "/"
-		self.custom_local_path_src.setText(ndata)
+	# receive data from file manager object signal and set to local/remote source/destination input
+	def get_browser_recv(self, data, custom_path):
+		if os.path.isfile(data):
+			if custom_path == "local_source":
+				self.custom_local_path_src.setText(data)
+			elif custom_path == "local_dest":
+				self.custom_local_path_dst.setText(data)
+			elif custom_path == "remote_source":
+				self.custom_remote_path_src.setText(data)
+			elif custom_path == "remote_dest":
+				new_data = data.replace(self.user, self.dest_user_input.text())
+				self.custom_remote_path_dst.setText(new_data)
 
-	# create file manager object for local destination and capture data
-	def local_dst_dir_brow(self):
-		self.ld_db = MyFileBrowser(self.operating_system)
-		self.ld_db.sig.return_data.connect(self.local_dst_dir_brow_recv)
-
-	# receive data from file manager object signal and set to local destination input
-	def local_dst_dir_brow_recv(self, data):
-		ndata = data + "/"
-		self.custom_local_path_dst.setText(ndata)
-
-	# create file manager object for remote source and capture data
-	def remote_src_dir_brow(self):
-		self.rs_db = MyFileBrowser(self.operating_system)
-		self.rs_db.sig.return_data.connect(self.remote_src_dir_brow_recv)
-
-	# receive data from file manager object signal and set to remote source input
-	def remote_src_dir_brow_recv(self, data):
-		if self.command == "rsync":
+		else:
 			ndata = data + "/"
-		else:
-			ndata = data + "/."
-		self.custom_remote_path_src.setText(ndata)
-
-	# create file manager object for remote destination and capture data
-	def remote_dst_dir_brow(self):
-		self.rd_db = MyFileBrowser(self.operating_system)
-		self.rd_db.sig.return_data.connect(self.remote_dst_dir_brow_recv)
-
-	# receive data from file manager object signal and set to remote destination input
-	def remote_dst_dir_brow_recv(self, data):
-		# experimental-get remote user path and try just swapping usernames given paths should be same bar username
-		if self.dest_user_input.text() == "":
-			self.rd_db.close()
-			self.show_user_info.setStyleSheet("color: red")
-			self.show_user_info.setText("This Option only works if destination Username has been input")
-			QTest.qWait(3000)
-			self.show_user_info.setStyleSheet("color:white")
-			self.show_user_info.setText("")
-			return
-		else:
-			new_data = data.replace(self.user, self.dest_user_input.text()) + "/"
-			self.custom_remote_path_dst.setText(new_data)
+			if custom_path == "local_source":
+				self.custom_local_path_src.setText(ndata)
+			elif custom_path == "local_dest":
+				self.custom_local_path_dst.setText(ndata)
+			elif custom_path == "remote_source":
+				self.custom_remote_path_src.setText(ndata)
+			# experimental-get remote user path and try just swapping usernames given paths should be same bar username
+			elif custom_path == "remote_dest":
+				new_data = ndata.replace(self.user, self.dest_user_input.text())
+				self.custom_remote_path_dst.setText(new_data)
 
 	# (on by default) button to enable rsync command instead of scp
 	def rsync_command(self):
@@ -433,46 +425,32 @@ class Window(QWidget):
 			self.sync_option4_input.setDisabled(True)
 
 	# if any checkbox is ticked, add to or remove from what_to_sync list
-	def get_header_1(self, state):
+	def get_header(self, state, header):
 		if state == Qt.Checked:
-			self.what_to_sync.append(1)
+			self.what_to_sync.append(header)
+			# Disable input unless tick box is checked
+			if header == 3:
+				self.custom_local_path_src.setDisabled(False)
+				self.custom_local_path_dst.setDisabled(False)
+				self.custom_local_path_src_button.setDisabled(False)
+				self.custom_local_path_dst_button.setDisabled(False)
+			if header == 4:
+				self.custom_remote_path_src.setDisabled(False)
+				self.custom_remote_path_dst.setDisabled(False)
+				self.custom_remote_path_src_button.setDisabled(False)
+				self.custom_remote_path_dst_button.setDisabled(False)
 		else:
-			self.what_to_sync.remove(1)
-
-	def get_header_2(self, state):
-		if state == Qt.Checked:
-			self.what_to_sync.append(2)
-		else:
-			self.what_to_sync.remove(2)
-
-	# Disable input unless tick box is checked
-	def get_header_3(self, state):
-		if state == Qt.Checked:
-			self.what_to_sync.append(3)
-			self.custom_local_path_src.setDisabled(False)
-			self.custom_local_path_dst.setDisabled(False)
-			self.local_src_dir_button.setDisabled(False)
-			self.local_dst_dir_button.setDisabled(False)
-		else:
-			self.what_to_sync.remove(3)
-			self.custom_local_path_src.setDisabled(True)
-			self.custom_local_path_dst.setDisabled(True)
-			self.local_src_dir_button.setDisabled(True)
-			self.local_dst_dir_button.setDisabled(True)
-
-	def get_header_4(self, state):
-		if state == Qt.Checked:
-			self.what_to_sync.append(4)
-			self.custom_remote_path_src.setDisabled(False)
-			self.custom_remote_path_dst.setDisabled(False)
-			self.remote_src_dir_button.setDisabled(False)
-			self.remote_dst_dir_button.setDisabled(False)
-		else:
-			self.what_to_sync.remove(4)
-			self.custom_remote_path_src.setDisabled(True)
-			self.custom_remote_path_dst.setDisabled(True)
-			self.remote_src_dir_button.setDisabled(True)
-			self.remote_dst_dir_button.setDisabled(True)
+			self.what_to_sync.remove(header)
+			if header == 3:
+				self.custom_local_path_src.setDisabled(True)
+				self.custom_local_path_dst.setDisabled(True)
+				self.custom_local_path_src_button.setDisabled(True)
+				self.custom_local_path_dst_button.setDisabled(True)
+			if header == 4:
+				self.custom_remote_path_src.setDisabled(True)
+				self.custom_remote_path_dst.setDisabled(True)
+				self.custom_remote_path_src_button.setDisabled(True)
+				self.custom_remote_path_dst_button.setDisabled(True)
 
 	# sets the correct option/flag from user input and returns option for use in sync
 	def get_options(self):
@@ -737,13 +715,18 @@ class SyncThatShit(QRunnable):
 					# stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 					self.scp_copy()
 
-			# get command output and errors for use to display in ui
-			self.output, self.errors = p.communicate()
-			self.output = self.output.decode()
-			self.errors = self.errors.decode()
-			# clean up scp output
+			# get scp output and then clean up scp output
 			if self.command == "scp":
+				# self.output = self.output.decode()
+				# self.errors = self.errors.decode()
 				self.get_scp_output()
+			else:
+				# get command output and errors for use to display in ui
+				self.output, self.errors = p.communicate()
+				self.output = self.output.decode()
+				self.errors = self.errors.decode()
+			'''if self.command == "scp":
+				self.get_scp_output()'''
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
 				self.signals.sync_errors.emit(True)
@@ -756,22 +739,32 @@ class SyncThatShit(QRunnable):
 	def scp_copy(self):
 		hostname = self.dest_ip
 		port = 22
-		client = paramiko.SSHClient()
-		client.load_system_host_keys()
-		client.connect(hostname=hostname, port=port, username=self.dest_user)
-		scp = SCPClient(client.get_transport())
-		# scp.put(self.source_path, self.dest_path)
-		# scp.get(self.dest_path, self.source_path)
-		scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
-		scp.close()
-		client.close()
-		'''
-		t = paramiko.Transport((hostname, port))
-		t.connect(username=self.dest_user)
-		sftp = paramiko.SFTPClient.from_transport(t)
-		sftp.put(self.source_path, self.dest_path)
-		sftp.close()
-		t.close()'''
+		try:
+			client = paramiko.SSHClient()
+			client.load_system_host_keys()
+			client.connect(hostname=hostname, port=port, username=self.dest_user)
+			with SCPClient(client.get_transport()) as scp:
+				if os.path.isfile(self.source_path):
+					scp.put(self.source_path, self.dest_path)
+				else:
+					scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
+			# scp.get(self.dest_path, self.source_path)
+			scp.close()
+			client.close()
+		except Exception as e:
+			print(e)
+			self.password = getpass()
+			client = paramiko.SSHClient()
+			client.load_system_host_keys()
+			client.connect(hostname=hostname, port=port, username=self.dest_user, passphrase=self.password)
+			with SCPClient(client.get_transport()) as scp:
+				if os.path.isfile(self.source_path):
+					scp.put(self.source_path, self.dest_path)
+				else:
+					scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
+			# scp.get(self.dest_path, self.source_path)
+			scp.close()
+			client.close()
 
 	# sets the paths of the sync depending on what sync option/header is used
 	def sync_sort(self):
