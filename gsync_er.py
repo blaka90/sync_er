@@ -22,14 +22,11 @@ __version__ = "1.6.2"
 
 '''
 NEED TO IMPLEMENT:
-	find ip button that is connected to self.get_saved_ip()...get saved ip and set in self.dest_ip_input
 	made radio buttons for destination OS type already...just implement self.get_dest_os()
+	when custom is checked add C:\ etc to custom_dest_input depending on os
 	
 
 TO FIX:
-
-add check for if os windows and trying to use rsync command 
-	-either don't let or specify they must have installed and know what they doing
 
 check if syncing just a file or folder: DONE now...
 	make sure to check before puting path into custom box from typing it aswel!) 
@@ -49,12 +46,11 @@ JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 
 TO ADD:
 
+make external script for setting up passwordless ssh
+
 add option for all custom paths whether to sync just file, folder or contents of folder
 	- practically half implemented already just modify get_broswer_recv accordingly 
 		-make sure to check before puting path into custom box from typing it aswel!)
-
-add option to find ip address from username giving(has to be on network...possibly with nmap?)
-or save ip address of username and try it when that username is used...enter manual otherwise until saved
 
 add button which opens new small window that can add multiple custom remote/local paths?
 
@@ -83,6 +79,7 @@ class Window(QWidget):
 		self.start_style()
 		self.user = getuser()
 		self.operating_system = ""
+		self.dest_operating_system = ""
 		self.get_os()
 		self.init_ui()
 		self.options = None
@@ -223,13 +220,13 @@ class Window(QWidget):
 		# user input box for destination ip address
 		self.dest_ip_input = QLineEdit(self)
 		self.dest_ip_input.setFixedWidth(220)
-		self.dest_ip_input.setText("192.168.0.")  # I'm lazy
+		self.dest_ip_input.setText("192.168.0.")  # I'm lazy      ----may remove this coz find button
 		self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
 		# experimental lazy way of getting saved ip's
-		self.dest_ip_button = QPushButton("Find IP", self)
-		self.dest_ip_button.setFixedWidth(60)
-		self.dest_ip_button.clicked.connect(self.get_saved_ip)
+		self.find_dest_info_button = QPushButton("Find", self)
+		self.find_dest_info_button.setFixedWidth(60)
+		self.find_dest_info_button.clicked.connect(self.get_saved_ip)
 
 		# get the os type of destination and later try change path accordingly
 		self.dest_os_label = QLabel(self)
@@ -378,9 +375,9 @@ class Window(QWidget):
 		grid.setContentsMargins(60, 60, 30, 60)
 		grid.addWidget(self.dest_user_label, 0, 0)
 		grid.addWidget(self.dest_user_input, 0, 1)
+		grid.addWidget(self.find_dest_info_button, 0, 2)
 		grid.addWidget(self.dest_ip_label, 1, 0)
 		grid.addWidget(self.dest_ip_input, 1, 1)
-		grid.addWidget(self.dest_ip_button, 1, 2)
 		grid.addWidget(self.dest_os_label, 2, 0)
 		grid.addLayout(h_box_os_buttons, 2, 1)
 		# grid.addWidget(self.dest_os_linux, 3, 0)
@@ -420,12 +417,70 @@ class Window(QWidget):
 		# set the layout
 		self.setLayout(h_box)
 
+	# check if user and ip are already saved and save if not
+	def test_n_save(self):
+		dos = self.get_dest_os()
+		to_save = self.dest_user + " " + self.dest_ip + " " + dos + "\n"
+		try:
+			saved_ips = open("saved_ips.txt", "r")
+			for line in saved_ips.readlines():
+				if line == to_save:
+					saved_ips.close()
+					return
+
+		except FileNotFoundError:
+			# make sure the destination is online(exists)
+			if self.operating_system == "windows":
+				response = os.system("ping -n 1 " + self.dest_ip)
+			else:
+				response = os.system("ping -c 1 " + self.dest_ip)
+
+			# and then check the response...
+			if response == 0:
+				# if valid destination save to saved_ips.txt list
+				with open("saved_ips.txt", "a+") as f:
+					f.write(to_save)
+					f.close()
+
+	# if user has entered connected to destination before, can get the ip without typing it
 	def get_saved_ip(self):
-		self.show_user_info.setText("implement me!")
+		if self.dest_user_input.text() == "":
+			self.show_user_info.setText("You must specify Destination Username to find IP!")
+			return
+		else:  # pull the data from ui
+			self.dest_user = str(self.dest_user_input.text())
+			self.dest_ip = str(self.dest_ip_input.text())
+		try:
+			# check for user in saved_ips list and set in dest_ip_input
+			saved_ips = open("saved_ips.txt", "r")
+			for line in saved_ips.readlines():
+				ndest_data = line.split()
+				if self.dest_user == ndest_data[0]:
+					saved_ips.close()
+					self.dest_ip_input.setText(ndest_data[1])
+					if ndest_data[2] == "linux":
+						self.dest_os_linux.setChecked(True)
+					elif ndest_data[2] == "mac":
+						self.dest_os_mac.setChecked(True)
+					elif ndest_data[2] == "windows":
+						self.dest_os_windows.setChecked(True)
+					return
+				else:
+					continue
+		except FileNotFoundError:
+			self.show_user_info.setText("Destination Username and IP must have been entered at"
+			                            " least once \nfor this Feature to work!")
+
+		# self.show_user_info.setText("implement me!")
 
 	def get_dest_os(self):
-		# implement pretty much the same way get_options is
-		self.show_user_info.setText("implement me!")
+		if self.dest_os_linux.isChecked():
+			self.dest_operating_system = "linux"
+		elif self.dest_os_mac.isChecked():
+			self.dest_operating_system = "mac"
+		elif self.dest_os_windows.isChecked():
+			self.dest_operating_system = "windows"
+		return self.dest_operating_system
 
 	# create file manager object for local/remote source/destination and capture data
 	def get_browser(self, custom_path):
@@ -472,6 +527,14 @@ class Window(QWidget):
 
 	# (on by default) button to enable rsync command instead of scp
 	def rsync_command(self):
+		if self.operating_system == "windows":
+			self.show_user_info.setStyleSheet("color: darkred")
+			self.show_user_info.setText("RSYNC OPTION IS NOT AVAILABLE ON WINDOWS\n...\n"
+			                            "*this option will run but is not advised*\n...\n"
+			                            "if you have actaully managed install rsync in windows ignore this\n")
+			QTest.qWait(8000)
+			self.show_user_info.setStyleSheet("color: white")
+			self.show_user_info.setText("")
 		self.command = "rsync"
 		self.rsync_button.setStyleSheet('color: green')
 		self.scp_button.setStyleSheet('color: darkred')
@@ -604,6 +667,7 @@ class Window(QWidget):
 	# grab all the information from user inputs needed for the sync
 	def get_sync_info(self):
 		self.get_options()
+		self.get_dest_os()
 		self.dest_user = str(self.dest_user_input.text())
 		self.dest_ip = str(self.dest_ip_input.text())
 		self.custom_local_source_path = str(self.custom_local_path_src.text())
@@ -680,6 +744,7 @@ class Window(QWidget):
 					self.update()
 					self.user_and_dest_okay = True
 					return
+			self.test_n_save()
 			# if all user input is filled in start the sync
 			self.show_user_info.setText("Syncing...")  # give the user feedback
 			QTest.qWait(1000)
@@ -918,11 +983,11 @@ class MyFileBrowser(QWidget):
 		self.file_path = ""
 		self.model = QFileSystemModel()  # the file file system model creation
 		self.model.setRootPath(QDir.rootPath())  # we want to start from root
-		self.setGeometry(920, 200, 1000, 600)
+		self.setGeometry(320, 200, 1000, 600)
 		self.view.setModel(self.model)  # puts the file system model into the tree view
 		self.view.setRootIndex(self.model.index(self.path))  # set the indexes
 		self.view.setSortingEnabled(True)  # give the option to sort on header click
-		self.view.setColumnWidth(0, 650)
+		self.view.setColumnWidth(0, 610)
 		self.view.sortByColumn(0, Qt.AscendingOrder)
 		self.open_button = QPushButton("Open", self)  # pushed when file path is chosen and sends signal
 		self.open_button.clicked.connect(self.return_path)
