@@ -28,6 +28,9 @@ NEED TO IMPLEMENT:
 
 TO FIX:
 
+re-write SyncThatShit and try put sync_sort into Window? (save passing a load of variables)
+	-for maiking compatible with all os's  
+
 check if syncing just a file or folder: DONE now...
 	make sure to check before puting path into custom box from typing it aswel!) 
 	
@@ -429,23 +432,33 @@ class Window(QWidget):
 					return
 
 		except FileNotFoundError:
-			# make sure the destination is online(exists)
-			if self.operating_system == "windows":
-				response = os.system("ping -n 1 " + self.dest_ip)
-			else:
-				response = os.system("ping -c 1 " + self.dest_ip)
+			self.show_user_info.setStyleSheet("color: darkred")
+			self.show_user_info.setText("Failed to load Previous user data")
+			QTest.qWait(5000)
+			self.show_user_info.setStyleSheet("color: white")
+			self.show_user_info.setText("")
 
-			# and then check the response...
-			if response == 0:
-				# if valid destination save to saved_ips.txt list
-				with open("saved_ips.txt", "a+") as f:
-					f.write(to_save)
-					f.close()
+		# make sure the destination is online(exists)
+		if self.operating_system == "windows":
+			response = os.system("ping -n 1 " + self.dest_ip)
+		else:
+			response = os.system("ping -c 1 " + self.dest_ip)
+
+		# and then check the response...
+		if response == 0:
+			# if valid destination save to saved_ips.txt list
+			with open("saved_ips.txt", "a+") as f:
+				f.write(to_save)
+				f.close()
 
 	# if user has entered connected to destination before, can get the ip without typing it
 	def get_saved_ip(self):
 		if self.dest_user_input.text() == "":
-			self.show_user_info.setText("You must specify Destination Username to find IP!")
+			self.show_user_info.setStyleSheet("color: darkred")
+			self.show_user_info.setText("You must specify Username to find Destination IP!")
+			QTest.qWait(5000)
+			self.show_user_info.setStyleSheet("color: white")
+			self.show_user_info.setText("")
 			return
 		else:  # pull the data from ui
 			self.dest_user = str(self.dest_user_input.text())
@@ -468,10 +481,12 @@ class Window(QWidget):
 				else:
 					continue
 		except FileNotFoundError:
+			self.show_user_info.setStyleSheet("color: darkred")
 			self.show_user_info.setText("Destination Username and IP must have been entered at"
 			                            " least once \nfor this Feature to work!")
-
-		# self.show_user_info.setText("implement me!")
+			QTest.qWait(5000)
+			self.show_user_info.setStyleSheet("color: white")
+			self.show_user_info.setText("")
 
 	def get_dest_os(self):
 		if self.dest_os_linux.isChecked():
