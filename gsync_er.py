@@ -22,14 +22,30 @@ __version__ = "1.6.2"
 
 '''
 NEED TO IMPLEMENT:
+
 	made radio buttons for destination OS type already...just implement self.get_dest_os()
 	when custom is checked add C:\ etc to custom_dest_input depending on os
+	
+	add all the ssh-copy-id shit to test_n_save
+		-ie "performing first time setup blah blah"
+			-make sure destination has ssh installed first 
+			
+	make cygwin a requirement? script to install and setup ssh and RSYNC?
 	
 
 TO FIX:
 
-re-write SyncThatShit and try put sync_sort into Window? (save passing a load of variables)
-	-for maiking compatible with all os's  
+can't uncheck dest_os_* in clear settings
+
+add check if dest_os is windows force scp
+
+refactor all:
+		self.show_user_info.setStyleSheet("color: red")
+		self.show_user_info.setText("This Option only works if destination Username has been input")
+		QTest.qWait(3000)
+		self.show_user_info.setStyleSheet("color:white")
+		self.show_user_info.setText("")
+into a function(color, message, time)
 
 check if syncing just a file or folder: DONE now...
 	make sure to check before puting path into custom box from typing it aswel!) 
@@ -127,9 +143,9 @@ class Window(QWidget):
 		dir_name = os.path.dirname(abspath)
 		os.chdir(dir_name)
 
-	@staticmethod
-	def welcome_banner():  # nostalgia from my cli version
-		return "--_--" * 30 + "\n" + " " * 100 + "SYNC_ER" + "\n" + "_-_" * 40 + "\n"
+	def welcome_banner(self):  # nostalgia from my cli version
+		if "blaka" in self.user:
+			return "--_--" * 30 + "\n" + " " * 100 + "SYNC_ER" + "\n" + "_-_" * 40 + "\n"
 
 	def get_os(self):
 		if "linux" in sys.platform.lower():
@@ -235,16 +251,16 @@ class Window(QWidget):
 		self.dest_os_label = QLabel(self)
 		self.dest_os_label.setText("Destination OS:")
 		# radio buttons to specify destination OS type
-		# linux default (linuxmasterrace)
 		self.dest_os_linux = QRadioButton("Linux")
-		self.dest_os_linux.setChecked(True)
+		# linux default (linuxmasterrace)
+		# self.dest_os_linux.setChecked(True)
 		self.dest_os_windows = QRadioButton("Windows")
 		self.dest_os_mac = QRadioButton("Mac")
 		# group just these os radio buttons together
 		self.os_radio_group = QButtonGroup(self)
-		self.os_radio_group.addButton(self.dest_os_linux)
-		self.os_radio_group.addButton(self.dest_os_windows)
-		self.os_radio_group.addButton(self.dest_os_mac)
+		self.os_radio_group.addButton(self.dest_os_linux, 0)
+		self.os_radio_group.addButton(self.dest_os_windows, 2)
+		self.os_radio_group.addButton(self.dest_os_mac, 1)
 		"""
 		# group just these sync option radio buttons together
 		self.sync_radio_group = QButtonGroup(self)
@@ -466,10 +482,14 @@ class Window(QWidget):
 		try:
 			# check for user in saved_ips list and set in dest_ip_input
 			saved_ips = open("saved_ips.txt", "r")
-			for line in saved_ips.readlines():
+			saved_ips_lines = saved_ips.readlines()
+			saved_ips.close()
+			num_lines = len(saved_ips_lines)
+			num = 0
+			for line in saved_ips_lines:
 				ndest_data = line.split()
+				num += 1
 				if self.dest_user == ndest_data[0]:
-					saved_ips.close()
 					self.dest_ip_input.setText(ndest_data[1])
 					if ndest_data[2] == "linux":
 						self.dest_os_linux.setChecked(True)
@@ -478,6 +498,13 @@ class Window(QWidget):
 					elif ndest_data[2] == "windows":
 						self.dest_os_windows.setChecked(True)
 					return
+				elif num == num_lines:
+					self.show_user_info.setStyleSheet("color: darkred")
+					self.show_user_info.setText("User information is not saved for this User!")
+					QTest.qWait(5000)
+					self.show_user_info.setStyleSheet("color: white")
+					self.show_user_info.setText("")
+					self.dest_ip_input.setText("")
 				else:
 					continue
 		except FileNotFoundError:
@@ -495,6 +522,12 @@ class Window(QWidget):
 			self.dest_operating_system = "mac"
 		elif self.dest_os_windows.isChecked():
 			self.dest_operating_system = "windows"
+		else:
+			self.show_user_info.setStyleSheet("color: red")
+			self.show_user_info.setText("Please choose Destination Operating System type")
+			QTest.qWait(3000)
+			self.show_user_info.setStyleSheet("color:white")
+			self.show_user_info.setText("")
 		return self.dest_operating_system
 
 	# create file manager object for local/remote source/destination and capture data
@@ -614,11 +647,14 @@ class Window(QWidget):
 		self.output_display.setText("")
 		self.dest_user_input.setText("")
 		self.dest_ip_input.setText("")
-		self.dest_os_linux.setChecked(True)
+		self.dest_os_linux.setChecked(False)
+		self.dest_os_linux.show()
+		self.dest_os_mac.setChecked(False)
+		self.dest_os_windows.setChecked(False)
 		self.sync_option1.setChecked(True)
-		# self.sync_option2.setChecked(False)
-		# self.sync_option3.setChecked(False)
-		# self.sync_option4.setChecked(False)
+		self.sync_option2.setChecked(False)
+		self.sync_option3.setChecked(False)
+		self.sync_option4.setChecked(False)
 		self.sync_option4_input.setText("")
 		self.option1.setChecked(False)
 		self.option2.setChecked(False)
@@ -636,8 +672,15 @@ class Window(QWidget):
 		self.custom_remote_source_path = ""
 		self.custom_remote_dest_path = ""
 		self.any_errors = False
-		self.rsync_command()
-		self.rsync_button.setChecked(True)
+		if self.operating_system == "linux":
+			self.rsync_button.setChecked(True)
+			self.rsync_command()
+		elif self.operating_system == "mac":
+			self.rsync_button.setChecked(True)
+			self.rsync_command()
+		elif self.operating_system == "windows":
+			self.scp_button.setChecked(True)
+			self.scp_command()
 
 	# clears the output display only when clear display button is pressed
 	def clear_display(self):
@@ -729,6 +772,8 @@ class Window(QWidget):
 					self.update()
 					self.user_and_dest_okay = True
 					return
+				if self.dest_operating_system == "":
+					return
 			# local sync only, make sure custom paths have user input
 			elif h == 3:
 				if not self.custom_local_source_and_dest_okay:
@@ -766,7 +811,8 @@ class Window(QWidget):
 			# creates the sync object, passing it all required input for sync
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
 			                           self.custom_local_dest_path, self.custom_local_source_path,
-			                           self.custom_remote_dest_path, self.custom_remote_source_path)
+			                           self.custom_remote_dest_path, self.custom_remote_source_path,
+			                           self.operating_system, self.dest_operating_system)
 			# signal to let show_user_info know if any errors occured changing color and user feedback
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
@@ -805,7 +851,7 @@ class WorkerSignals(QObject):
 class SyncThatShit(QRunnable):
 	# all user input passed to it from main window ui
 	def __init__(self, header, command, options, user, dest_user, dest_ip, custom_local_dest_path,
-	             custom_local_source_path, custom_remote_dest_path, custom_remote_source_path):
+	             custom_local_source_path, custom_remote_dest_path, custom_remote_source_path, user_os, dest_os):
 		QRunnable.__init__(self)
 		self.header = header
 		self.command = command
@@ -818,6 +864,8 @@ class SyncThatShit(QRunnable):
 		self.custom_local_source_path = custom_local_source_path
 		self.custom_remote_dest_path = custom_remote_dest_path
 		self.custom_remote_source_path = custom_remote_source_path
+		self.user_os = user_os
+		self.dest_os = dest_os
 		self.source_path = ""
 		self.dest_path = ""
 		self.destination = ""
@@ -927,13 +975,35 @@ class SyncThatShit(QRunnable):
 
 		# sets if self.option1 is ticked
 		if self.header == 1:
-			self.source_path = "/home/" + self.user + "/Documents/"
-			self.dest_path = "/home/" + self.dest_user + "/Documents/"
+			if self.user_os == "linux":
+				self.source_path = "/home/" + self.user + "/Documents/"
+			elif self.user_os == "mac":
+				self.source_path = "/Users/" + self.user + "/Documents/"
+			elif self.user_os == "windows":
+				self.source_path = "C:/Users/" + self.user + "/Documents/"
+
+			if self.dest_os == "linux":
+				self.dest_path = "/home/" + self.dest_user + "/Documents/"
+			elif self.dest_os == "mac":
+				self.dest_path = "/Users/" + self.dest_user + "/Documents/"
+			elif self.dest_os == "windows":
+				self.dest_path = "C:/Users/" + self.dest_user + "/Documents/"
 
 		# sets if self.option2 is ticked
 		elif self.header == 2:
-			self.source_path = "/home/" + self.user + "/Downloads/"
-			self.dest_path = "/home/" + self.dest_user + "/Downloads/"
+			if self.user_os == "linux":
+				self.source_path = "/home/" + self.user + "/Downloads/"
+			elif self.user_os == "mac":
+				self.source_path = "/Users/" + self.user + "/Downloads/"
+			elif self.user_os == "windows":
+				self.source_path = "C:/Users/" + self.user + "/Downloads/"
+
+			if self.dest_os == "linux":
+				self.dest_path = "/home/" + self.dest_user + "/Downloads/"
+			elif self.dest_os == "mac":
+				self.dest_path = "/Users/" + self.dest_user + "/Downloads/"
+			elif self.dest_os == "windows":
+				self.dest_path = "C:/Users/" + self.dest_user + "/Downloads/"
 
 		# sets if self.option3 is ticked
 		elif self.header == 3:
