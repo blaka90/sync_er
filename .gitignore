@@ -4,3 +4,4 @@
 *.desktop
 *.png
 saved_ips.txt
+__pycache__
