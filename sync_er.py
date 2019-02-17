@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 import subprocess
 import os
@@ -83,34 +83,34 @@ class Sync(threading.Thread):
 			7: "Pic's n Video's", 8: "Downloads(mac > linux)", 9: "Documents(linux > linux)",
 			10: "Documents(mac <> linux)", 11: "Downloads(linux > mac)",12: "Custom Paths",
 			13: "Custom Remote Paths", 14: "Tablet"}
-		print "#" * 75
-		print " " * 15 + "Showing output for " + headers[self.header] + " sync"
-		print "#" * 75
-		print self.output
+		print("#" * 75)
+		print(" " * 15 + "Showing output for " + headers[self.header] + " sync")
+		print("#" * 75)
+		print(self.output)
 		if len(self.errors) != 0:
-			print "~" * 10 + "ERRORS" + "~" * 10
-			print str(self.errors) + "\n"
+			print("~" * 10 + "ERRORS" + "~" * 10)
+			print(str(self.errors) + "\n")
 
 	# runs after each object is created
 	def what_to_sync(self):
 		# left the implementation in for the unused just for the time being maybe replace with diff dirs?
-		print "What would you like to sync?" + "\n"
-		print "1.  Full Hard Drive"
-		print "2.  Books"
-		print "3.  Iso's and Dmg's"
-		print "4.  VM's"
-		print "5.  Programming"
-		print "6.  Games"
-		print "7.  Pic's n Video's"
-		print "8.  Downloads(mac > linux)"
-		print "9.  Documents(linux > linux)"
-		print "10. Documents(mac <> linux)"
-		print "11. Downloads(linux > mac)"
-		print "12. Custom Paths"
-		print "13. Custom Remote Paths"
-		print "14. Tablet(broken)"  # FIX THIS TO WORK WITH TABLET(get movies showbox)
-		print "15. Exit"
-		self.ans = raw_input(">")
+		print("What would you like to sync?" + "\n")
+		print("1.  Full Hard Drive")
+		print("2.  Books")
+		print("3.  Iso's and Dmg's")
+		print("4.  VM's")
+		print("5.  Programming")
+		print("6.  Games")
+		print("7.  Pic's n Video's")
+		print("8.  Downloads(mac > linux)")
+		print("9.  Documents(linux > linux)")
+		print("10. Documents(mac <> linux)")
+		print("11. Downloads(linux > mac)")
+		print("12. Custom Paths")
+		print("13. Custom Remote Paths")
+		print("14. Tablet(broken)")  # FIX THIS TO WORK WITH TABLET(get movies showbox)
+		print("15. Exit")
+		self.ans = input(">")
 		self.sync_sort(self.ans)
 
 	# sets the source destination of the sync
@@ -120,16 +120,16 @@ class Sync(threading.Thread):
 		elif self.source == "blaka":
 			self.src_hdd = "/Volumes/MacBookHDD"
 		else:
-			print "This machine is not on the source list, please specify HardDrive Location:\n"
-			self.src_hdd = raw_input("> ")
+			print("This machine is not on the source list, please specify HardDrive Location:\n")
+			self.src_hdd = input("> ")
 
 		if self.destination == "blaka7":
 			self.dest_hdd = "/mnt/HDD"
 		elif self.destination == "blaka":
 			self.dest_hdd = "/Volumes/MacBookHDD"
 		else:
-			print "This machine is not on the source list, please specify HardDrive Location:\n"
-			self.src_hdd = raw_input("> ")
+			print("This machine is not on the source list, please specify HardDrive Location:\n")
+			self.src_hdd = input("> ")
 
 		if folder == "1":
 			self.source_folder = self.src_hdd + "/me_shit/"
@@ -145,13 +145,13 @@ class Sync(threading.Thread):
 			self.source_folder = self.src_hdd + "/me_shit/iso_n_dmgs/"
 			self.dest_folder = self.dest_hdd + "/me_shit/iso_n_dmgs/"
 			self.header = 3
-			print "\n" + "Please wait...this could take a while"
+			print("\n" + "Please wait...this could take a while")
 
 		elif folder == "4":
 			self.source_folder = self.src_hdd + "/me_shit/VMS/"
 			self.dest_folder = self.dest_hdd + "/me_shit/VMS/"
 			self.header = 4
-			print "\n" + "Please wait...this could take a while"
+			print("\n" + "Please wait...this could take a while")
 
 		elif folder == "5":
 			self.source_folder = self.src_hdd + "/me_shit/programming/"
@@ -162,7 +162,7 @@ class Sync(threading.Thread):
 			self.source_folder = self.src_hdd + "/me_shit/GAMES/"
 			self.dest_folder = self.dest_hdd + "/me_shit/GAMES/"
 			self.header = 6
-			print "\n" + "Please wait...this could take a while"
+			print("\n" + "Please wait...this could take a while")
 
 		elif folder == "7":
 			self.source_folder = self.src_hdd + "/me_shit/pics_n_videos/"
@@ -187,7 +187,7 @@ class Sync(threading.Thread):
 				self.source_folder = "/home/" + self.source + "/Documents/"
 				self.dest_folder = "/Users/" + self.destination + "/Documents/"
 			else:
-				print "I am broken fix me(mac/linux documents sync)"
+				print("I am broken fix me(mac/linux documents sync)")
 				exit(5)
 			self.header = 10
 
@@ -197,13 +197,13 @@ class Sync(threading.Thread):
 			self.header = 11
 
 		elif folder == "12":
-			self.source_folder = raw_input("Source Folder: ")
-			self.dest_folder = raw_input("Destination Folder: ")
+			self.source_folder = input("Source Folder: ")
+			self.dest_folder = input("Destination Folder: ")
 			self.header = 12
 
 		elif folder == "13":
-			self.source_folder = raw_input("Source Folder(R): ")
-			self.dest_folder = raw_input("Destination Folder(R): ")
+			self.source_folder = input("Source Folder(R): ")
+			self.dest_folder = input("Destination Folder(R): ")
 			self.header = 13
 
 		elif folder == "14":
@@ -212,7 +212,7 @@ class Sync(threading.Thread):
 			self.header = 14
 
 		elif folder == "15":
-			print "#" * 25 + "EXITING" + "#" * 25
+			print("#" * 25 + "EXITING" + "#" * 25)
 			exit(0)
 
 	# depending on what options are used, sets the right command
@@ -241,13 +241,13 @@ class Sync(threading.Thread):
 			self.output, self.errors = p.communicate()
 			self.release = True
 		except Exception as e:
-			print "Ooops something went wrong there..." + "\n"
-			print str(e) + "\n"
+			print("Ooops something went wrong there..." + "\n")
+			print(str(e) + "\n")
 			exit(1)
 
 
 def release_pool():
-	print "[*] Waiting for all jobs to finish [*]\n"
+	print("[*] Waiting for all jobs to finish [*]\n")
 	for th in pool:  # releases all the outputs for each sync then exits
 		th.join()
 		if th.release:
@@ -257,12 +257,12 @@ def release_pool():
 
 def main():  # the main loop
 	user_source = getuser()
-	print "Using username: " + user_source
-	user_dest = raw_input("destination username: ")
-	dest_ip = raw_input("destination ip(leave blank for local): ")
-	opts = raw_input("options:\n(d)efault\n(c)ompress\n(del)ete (only deletes what is already deleted from source "
+	print("Using username: " + user_source)
+	user_dest = input("destination username: ")
+	dest_ip = input("destination ip(leave blank for local): ")
+	opts = input("options:\n(d)efault\n(c)ompress\n(del)ete (only deletes what is already deleted from source "
 					 "folder)\nenter manually\n> ")
-	print "\n"
+	print("\n")
 	# the programs main loop for initiating a sync thread
 	# while True:
 	for thread in threads:
@@ -276,14 +276,14 @@ def main():  # the main loop
 			thread.start()
 			pool.append(thread)  # add it to the pool
 			thread.join()
-			print "\n" + "...Syncing..." + "\n"
-			print "\n" + "Would you like to sync any more?"
-			sync = raw_input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
+			print("\n" + "...Syncing..." + "\n")
+			print("\n" + "Would you like to sync any more?")
+			sync = input("y/n: ").lower()  # can only do up to 5 continuous syncs to date
 			if sync == "y":   # makes a new thread sync object
-				print "\n"
+				print("\n")
 				continue
 			else:
-				print "\n"
+				print("\n")
 				break
 	release_pool()
 
@@ -291,7 +291,7 @@ def main():  # the main loop
 if __name__ == "__main__":
 	os.system("clear")
 	# welcome banner
-	print "-_-" * 26
-	print " " * 35 + "SYNC_ER"
-	print "_-_" * 26 + "\n"
+	print("-_-" * 26)
+	print(" " * 35 + "SYNC_ER")
+	print("_-_" * 26 + "\n")
 	main()
