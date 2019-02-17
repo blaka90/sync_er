@@ -18,55 +18,31 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.6.2"
+__version__ = "1.6.3"
 
 '''
-NEED TO IMPLEMENT:
-
-	made radio buttons for destination OS type already...just implement self.get_dest_os()
-	when custom is checked add C:\ etc to custom_dest_input depending on os
-	
-	FEEL LIKE DROPPING SUPPORT FOPR WINDOWS FUCKING DONE RIGHT IN!!!!!
-
 TO FIX:
 
-ssh_install.py needs to know if dest is windows/linux/mac(will only woirk on linux at the minute)
+test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 
 can't uncheck dest_os_* in clear settings
 
-add check if dest_os is windows force scp
-
-check if syncing just a file or folder: DONE now...
-	make sure to check before puting path into custom box from typing it aswel!) 
-	
-	-done for scp need to do for rsync
-	-need to capture output for scp? stdin.read()?
-	-need to handle incase passwordless ssh not setup?
-		-check if authorzed_keys exists(meaning scp is setup) and maybe search it for dest user to make sure
-		-open qdialogInput if isn't and pass password to SyncThatShit
-
+self.run_keygen() needs sorting for if running on different os and even diff linux distro
 	
 JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
-	-.ssh is in C:\ Users\ user\.ssh (only showed after first run)
-		-because ssh not passwordless...brings up dos box to input password(wasn't expecting that) buts works
-	-the way the path is put into custom input box will need a rewrite
+		-need to test ssh_install.py winodws
+
 
 TO ADD:
 
-add option for all custom paths whether to sync just file, folder or contents of folder
-	- practically half implemented already just modify get_broswer_recv accordingly 
-		-make sure to check before puting path into custom box from typing it aswel!)
+possibly a way to change saved_ips incase ip changes(maybe implement in test_n_save) 
+
+display how to use guide on output display???  (paths, generate keygen shit and that)
 
 add button which opens new small window that can add multiple custom remote/local paths?
 
-may have to make fullscreen or bigger if adding more features or going to get crowded
-
-try make compatible with windows and mac:
-	Documents option maps to os dependent path documents, same for downloads etc
-	including adding all the standards...pictures music videos etc
-	or:
-		create windows/mac/linux buttons under each custom path and translate path(if possible) for given os
+add more default syncing options
 		
 progressbar (probably under the display window)
 
@@ -453,8 +429,12 @@ class Window(QWidget):
 			return False
 
 	def run_keygen(self):
-		import ssh_install
-		ssh_install.main()
+		# import ssh_install
+		# ssh_install.main()
+		p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
+		out, err = p.communicate()
+		self.output_display.setText(out + err)
+
 	"""
 	def run_keygen(self):
 		self.get_sync_info()
@@ -515,14 +495,14 @@ class Window(QWidget):
 
 	# check if user and ip are already saved and save if not
 	def test_n_save(self):
-		self.show_info_color("yellow", "Trying to save User data", 3000)
+		# self.show_info_color("yellow", "Trying to save User data", 3000)
 		to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
 		try:
 			saved_ips = open("saved_ips.txt", "r")
 			for line in saved_ips.readlines():
 				if line == to_save:
 					saved_ips.close()
-					self.show_info_color("darkred", "User already saved!", 3000)
+					# self.show_info_color("darkred", "User already saved!", 3000)
 					return
 
 		except FileNotFoundError:
@@ -584,15 +564,15 @@ class Window(QWidget):
 			self.dest_operating_system = "mac"
 		elif self.dest_os_windows.isChecked():
 			self.dest_operating_system = "windows"
-		else:
-			self.show_info_color("red", "Please choose Destination Operating System type", 3000)
+
 		return self.dest_operating_system
 
 	# create file manager object for local/remote source/destination and capture data
 	def get_browser(self, custom_path):
 		if custom_path == "remote_dest":
 			if self.dest_user_input.text() == "":
-				self.show_info_color("red", "This Option only works if destination Username has been input", 3000)
+				self.show_info_color("red", "This Option only works if destination Username has been input\n"
+				                            "EXPERIMENTAL", 3000)
 				return
 			else:
 				self.brow = MyFileBrowser(self.operating_system)
@@ -785,16 +765,23 @@ class Window(QWidget):
 		# used later for if the user doesn't specify certain details when trying to sync
 		if (not self.dest_user) or (not self.dest_ip):
 			self.user_and_dest_okay = False
+		else:
+			self.user_and_dest_okay = True
 		if (not self.custom_remote_source_path) or (not self.custom_remote_dest_path):
 			self.custom_remote_source_and_dest_okay = False
+		else:
+			self.custom_remote_source_and_dest_okay = True
 		if (not self.custom_local_source_path) or (not self.custom_local_dest_path):
 			self.custom_local_source_and_dest_okay = False
+		else:
+			self.custom_local_source_and_dest_okay = True
+		self.update()
 
 	# called when the sync button is pressed
 	def syncer(self):
 		# make sure user has ticked atleast 1 of the sync options, return if not
 		if not self.what_to_sync:
-			self.show_info_color("darkred", "Please choose options to begin syncing", 3000)
+			self.show_info_color("red", "Please choose options to begin syncing", 3000)
 			return
 
 		# create pool for threads if multiple syncs in one go
@@ -813,6 +800,7 @@ class Window(QWidget):
 					self.user_and_dest_okay = True
 					return
 				if self.dest_operating_system == "":
+					self.show_info_color("darkred", "Please choose Destination Operating System type", 3000)
 					return
 			# local sync only, make sure custom paths have user input
 			elif h == 3:
@@ -828,6 +816,9 @@ class Window(QWidget):
 				if not self.user_and_dest_okay:  # make sure username and ip address have user input
 					self.show_info_color("darkred", "Please input username or ip address before syncing", 3000)
 					self.user_and_dest_okay = True
+					return
+				if self.dest_operating_system == "":
+					self.show_info_color("darkred", "Please choose Destination Operating System type", 3000)
 					return
 			self.test_n_save()
 			# if all user input is filled in start the sync
@@ -922,22 +913,23 @@ class SyncThatShit(QRunnable):
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 				else:
-					# p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
-					# stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					self.scp_copy()
+					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
+					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					# self.scp_copy()
 
-			# get scp output and then clean up scp output
+			"""
 			if self.command == "scp":
 				# self.output = self.output.decode()
 				# self.errors = self.errors.decode()
 				self.get_scp_output()
-			else:
-				# get command output and errors for use to display in ui
-				self.output, self.errors = p.communicate()
-				self.output = self.output.decode()
-				self.errors = self.errors.decode()
-			'''if self.command == "scp":
-				self.get_scp_output()'''
+			else:"""
+			# get command output and errors for use to display in ui
+			self.output, self.errors = p.communicate()
+			self.output = self.output.decode()
+			self.errors = self.errors.decode()
+			# get scp output and then clean up scp output
+			if self.command == "scp":
+				self.get_scp_output()
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
 				self.signals.sync_errors.emit(True)
@@ -979,6 +971,10 @@ class SyncThatShit(QRunnable):
 
 	# sets the paths of the sync depending on what sync option/header is used
 	def sync_sort(self):
+		# force scp if windows is involved
+		if self.dest_os == "windows":
+			if self.user_os != "windows":
+				self.command = "scp"
 		# set the option/flag
 		if self.options == "d":  # default
 			self.options = "-Paiurv"
