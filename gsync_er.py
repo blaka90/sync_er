@@ -23,6 +23,8 @@ __version__ = "1.6.3"
 '''
 TO FIX:
 
+progressbar - ground work is down just need to work out how to actualy make it work
+
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 
 can't uncheck dest_os_* in clear settings
@@ -43,10 +45,6 @@ display how to use guide on output display???  (paths, generate keygen shit and 
 add button which opens new small window that can add multiple custom remote/local paths?
 
 add more default syncing options
-		
-progressbar (probably under the display window)
-
-may be overthinking it here but what if you want to copy from dest to source? add buttons to change them?
 	
 '''
 
@@ -156,6 +154,11 @@ class Window(QWidget):
 		self.output_display.setFixedWidth(800)
 		self.output_display.setFixedHeight(750)
 		self.output_display.setText(self.welcome_banner())
+
+		# progressbar for syncs
+		self.progress_bar = QProgressBar()
+		self.progress_bar.setGeometry(0, 0, 10, 400)
+		# self.progress_bar.setFixedWidth(800)
 
 		"""left side of gui"""
 
@@ -401,10 +404,16 @@ class Window(QWidget):
 		v_box.addWidget(self.show_user_info)
 		v_box.addLayout(h_box_buttons)
 
+		# vertical layout for output_display and progressbar
+		v_box_right = QVBoxLayout()
+		v_box_right.addWidget(self.output_display)
+		v_box_right.addWidget(self.progress_bar)
+
 		# horizontal layout to split user input on left and display on right
 		h_box = QHBoxLayout()
 		h_box.addLayout(v_box)
-		h_box.addWidget(self.output_display)
+		h_box.addLayout(v_box_right)
+		# h_box.addWidget(self.output_display)
 
 		# set the layout
 		self.setLayout(h_box)
@@ -721,6 +730,13 @@ class Window(QWidget):
 	def was_there_errors(self, err):
 		self.any_errors = err
 
+	def update_progress(self, total):
+		start = 0
+		self.progress_bar.setRange(start, total)
+		while start <= total:
+			self.progress_bar.setValue(start)
+			start += 1
+
 	# used to print to display what output is showing after sync is complete
 	@pyqtSlot(int, str, str)  # DO I EVEN NEED THIS SINCE I CONNECT THE SIGNAL ANYWAY?
 	def print_sync(self, header, output, errors):
@@ -833,6 +849,8 @@ class Window(QWidget):
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
 			self.worker.signals.finished.connect(self.print_sync)
+			# signal to update ther progress_bar
+			self.worker.signals.prog_update.connect(self.update_progress)
 			# start the thread/sync
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
@@ -853,6 +871,7 @@ class WorkerSignals(QObject):
 	finished = pyqtSignal(int, str, str)
 	# used to let show_user_info if any errors occured for coloring and feedback
 	sync_errors = pyqtSignal(bool)
+	prog_update = pyqtSignal(int)
 
 
 # object for running the sync commands
@@ -884,7 +903,7 @@ class SyncThatShit(QRunnable):
 
 	# automatically gets run as thread
 	def run(self):
-
+		self.dry_run()
 		try:  # used for remote options
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
@@ -938,6 +957,39 @@ class SyncThatShit(QRunnable):
 		except Exception as e:
 			err = "Ooops something went wrong there..." + "\n" + str(e)
 			self.signals.finished.emit(self.header, self.output, err)
+
+	def dry_run(self):
+		options = "-az --dry-run --stats"
+		# command for local syncs
+		if self.header == 3:
+			p = subprocess.Popen([self.command, options, self.source_path, self.dest_path],
+			                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		# command for remote syncs
+		else:
+			if self.command == "rsync":
+				if self.delete:
+					p = subprocess.Popen(
+						[self.command, options, self.source_path, self.destination, "--delete"],
+						stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				else:
+					p = subprocess.Popen([self.command, options, self.source_path, self.destination],
+					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+			else:
+				p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
+				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		self.output, self.errors = p.communicate()
+		self.output = self.output.decode()
+		self.errors = self.errors.decode()
+		for line in self.output:
+			if line.startswith("Number of files:"):
+				nline = line.split()
+				for l in nline:
+					if l.isnum():
+						print(l)
+						self.signals.prog_update.emit(int(l))
 
 	def scp_copy(self):
 		hostname = self.dest_ip
