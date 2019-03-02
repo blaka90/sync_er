@@ -24,8 +24,10 @@ __version__ = "1.6.5"
 TO FIX:
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
+	- it does but the . trick isn't/doesn't work anymore?
+	-added warning for now until fixed?
 
-can't uncheck dest_os_* in clear settings
+can't uncheck dest_os_* in clear settings (tried don't know how????)
 
 self.run_keygen() needs sorting for if running on different os and even diff linux distro
 	
@@ -153,7 +155,7 @@ class Window(QWidget):
 		self.output_display.setFixedHeight(750)
 		self.output_display.setText(self.welcome_banner())
 
-		# progressbar for syncs
+		# loadingbar gif for syncs
 		self.loading_bar = QLabel(self)
 		self.movie = QMovie("loading.gif")
 		self.loading_bar.setMovie(self.movie)
@@ -352,7 +354,7 @@ class Window(QWidget):
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
-		h_box_buttons.setContentsMargins(20, 100, 20, 20)
+		h_box_buttons.setContentsMargins(20, 40, 20, 20)
 		h_box_buttons.addWidget(self.sync_button)
 		h_box_buttons.addWidget(self.clear_settings_button)
 		h_box_buttons.addWidget(self.clear_display_button)
@@ -368,7 +370,7 @@ class Window(QWidget):
 		grid = QGridLayout()
 		grid.setSpacing(10)
 		grid.setAlignment(Qt.AlignTop)
-		grid.setContentsMargins(60, 60, 30, 60)
+		grid.setContentsMargins(60, 40, 30, 60)
 		grid.addWidget(self.dest_user_label, 0, 0)
 		grid.addWidget(self.dest_user_input, 0, 1)
 		grid.addWidget(self.find_dest_info_button, 0, 2)
@@ -413,7 +415,6 @@ class Window(QWidget):
 		h_box = QHBoxLayout()
 		h_box.addLayout(v_box)
 		h_box.addLayout(v_box_right)
-		# h_box.addWidget(self.output_display)
 
 		# set the layout
 		self.setLayout(h_box)
@@ -634,6 +635,9 @@ class Window(QWidget):
 		self.scp_button.setStyleSheet('color: green')
 		self.rsync_button.setStyleSheet('color: darkred')
 		self.rsync_button.setChecked(False)
+		self.show_info_color("red", "!!! WARNING !!!\n\nScp option only copies the folder to destination\n"
+		                            "to copy only the contents of a folder use Rsync!\n"
+		                            "*Applies to all options", 10000)
 
 	# disables input for custom option/flag if unchecked...vice versa
 	def check_option(self, enabled):
@@ -929,7 +933,7 @@ class SyncThatShit(QRunnable):
 
 				else:
 					self.proc_command = self.command + " -rv " + self.source_path + " " + self.destination
-			# self.scp_copy()
+					# self.scp_copy()
 
 			# run the process wait for it to finish and store the output
 			self.proc.start(self.proc_command)
@@ -937,13 +941,13 @@ class SyncThatShit(QRunnable):
 			self.output = self.proc.readAllStandardOutput()
 			self.errors = self.proc.readAllStandardError()
 
-			# get scp output and then clean up scp output
-			if self.command == "scp":
-				self.get_scp_output()
-
 			# get command output and errors for use to display in ui
 			self.output = str(self.output, "utf-8")
 			self.errors = str(self.errors, "utf-8")
+
+			# get scp output and then clean up scp output
+			if self.command == "scp":
+				self.get_scp_output()
 
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
@@ -964,9 +968,9 @@ class SyncThatShit(QRunnable):
 			client.connect(hostname=hostname, port=port, username=self.dest_user)
 			with SCPClient(client.get_transport()) as scp:
 				if os.path.isfile(self.source_path):
-					scp.put(self.source_path, self.dest_path)
+					self.output, self.errors = scp.put(self.source_path, self.dest_path)
 				else:
-					scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
+					self.output, self.errors = scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
 			# scp.get(self.dest_path, self.source_path)
 			scp.close()
 			client.close()
