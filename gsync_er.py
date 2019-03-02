@@ -18,7 +18,7 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.6.4"
+__version__ = "1.6.5"
 
 '''
 TO FIX:
@@ -31,7 +31,7 @@ self.run_keygen() needs sorting for if running on different os and even diff lin
 	
 JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
-		-need to test ssh_install.py winodws
+		-need to test ssh_install.py windows
 
 
 TO ADD:
@@ -70,6 +70,8 @@ class Window(QWidget):
 		self.user_and_dest_okay = True
 		self.custom_remote_source_and_dest_okay = True
 		self.custom_local_source_and_dest_okay = True
+		# create pool for threads if multiple syncs in one go
+		self.pool = QThreadPool()
 
 	@staticmethod
 	def start_style():
@@ -801,7 +803,7 @@ class Window(QWidget):
 			return
 
 		# create pool for threads if multiple syncs in one go
-		self.pool = QThreadPool()
+		# self.pool = QThreadPool()
 		self.get_sync_info()  # pull all user input/options ready for sync
 		self.clear_display()  # essionally just removes welcome_banner at this point
 		# all remote options
@@ -853,17 +855,21 @@ class Window(QWidget):
 			# start the thread/sync
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
-		self.pool.waitForDone()
-		self.update_progress(False)
+		# self.pool.waitForDone()
+		# self.update_progress(False)
 		self.sync_complete()
 
 	def sync_complete(self):
 		QTest.qWait(100)
-		if self.any_errors:
-			self.show_info_color("yellow", "Sync Completed!\nbut...\n Errors have occured!", 8000)
+		if self.pool.activeThreadCount() == 0:
+			self.update_progress(False)
+			if self.any_errors:
+				self.show_info_color("yellow", "Sync Completed!\nbut...\n Errors have occured!", 8000)
+			else:
+				self.show_info_color("green", "Sync Completed!", 8000)
+			self.any_errors = False
 		else:
-			self.show_info_color("green", "Sync Completed!", 8000)
-		self.any_errors = False
+			self.sync_complete()
 
 
 # object used for signals when finished to start printing to display
@@ -902,55 +908,48 @@ class SyncThatShit(QRunnable):
 
 	# automatically gets run as thread
 	def run(self):
+		self.proc = QProcess()
+		self.proc_command = ""
 		try:  # used for remote options
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
-			# obsolete from cli version(will be updated to usuable option tho)
-			# ipad = self.destination + "@" + self.destination_ip + ":" + self.dest_path
-
 			# command for local syncs
 			if self.header == 3:
-				p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
-				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-			# obsolete from cli verion(will be updated to usuable option tho)
-			elif self.header == 14:
-				# p = subprocess.Popen(["scp", ipad, self.source_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				pass
+				self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
 
 			# command for remote syncs
 			else:
 				if self.command == "rsync":
 					if self.delete:
-						p = subprocess.Popen(
-							[self.command, self.options, self.source_path, self.destination, "--delete"],
-							stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+						self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+						                    " " + self.destination + " --delete"
 					else:
-						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
-						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+						self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+						                    " " + self.destination
 
 				else:
-					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					# self.scp_copy()
+					self.proc_command = self.command + " -rv " + self.source_path + " " + self.destination
+			# self.scp_copy()
 
-			"""
-			if self.command == "scp":
-				# self.output = self.output.decode()
-				# self.errors = self.errors.decode()
-				self.get_scp_output()
-			else:"""
-			# get command output and errors for use to display in ui
-			self.output, self.errors = p.communicate()
-			self.output = self.output.decode()
-			self.errors = self.errors.decode()
+			# run the process wait for it to finish and store the output
+			self.proc.start(self.proc_command)
+			self.proc.waitForFinished()
+			self.output = self.proc.readAllStandardOutput()
+			self.errors = self.proc.readAllStandardError()
+
 			# get scp output and then clean up scp output
 			if self.command == "scp":
 				self.get_scp_output()
+
+			# get command output and errors for use to display in ui
+			self.output = str(self.output, "utf-8")
+			self.errors = str(self.errors, "utf-8")
+
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
 				self.signals.sync_errors.emit(True)
 			self.signals.finished.emit(self.header, self.output, self.errors)
+
 		# display stderr
 		except Exception as e:
 			err = "Ooops something went wrong there..." + "\n" + str(e)
@@ -1004,7 +1003,10 @@ class SyncThatShit(QRunnable):
 		# sets if self.option1 is ticked
 		if self.header == 1:
 			if self.user_os == "linux":
-				self.source_path = "/home/" + self.user + "/Documents/"
+				if self.command == "scp":
+					self.source_path = "/home/" + self.user + "/Documents/."
+				else:
+					self.source_path = "/home/" + self.user + "/Documents/"
 			elif self.user_os == "mac":
 				self.source_path = "/Users/" + self.user + "/Documents/"
 			elif self.user_os == "windows":
