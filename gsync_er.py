@@ -18,12 +18,10 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.6.3"
+__version__ = "1.6.4"
 
 '''
 TO FIX:
-
-progressbar - ground work is down just need to work out how to actualy make it work
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 
@@ -41,8 +39,6 @@ TO ADD:
 possibly a way to change saved_ips incase ip changes(maybe implement in test_n_save) 
 
 display how to use guide on output display???  (paths, generate keygen shit and that)
-
-add button which opens new small window that can add multiple custom remote/local paths?
 
 add more default syncing options
 	
@@ -156,9 +152,11 @@ class Window(QWidget):
 		self.output_display.setText(self.welcome_banner())
 
 		# progressbar for syncs
-		self.progress_bar = QProgressBar()
-		self.progress_bar.setGeometry(0, 0, 10, 400)
-		# self.progress_bar.setFixedWidth(800)
+		self.loading_bar = QLabel(self)
+		self.movie = QMovie("loading.gif")
+		self.loading_bar.setMovie(self.movie)
+		self.loading_bar.setFixedWidth(800)
+		self.loading_bar.setAlignment(Qt.AlignCenter)
 
 		"""left side of gui"""
 
@@ -407,7 +405,7 @@ class Window(QWidget):
 		# vertical layout for output_display and progressbar
 		v_box_right = QVBoxLayout()
 		v_box_right.addWidget(self.output_display)
-		v_box_right.addWidget(self.progress_bar)
+		v_box_right.addWidget(self.loading_bar)
 
 		# horizontal layout to split user input on left and display on right
 		h_box = QHBoxLayout()
@@ -438,11 +436,12 @@ class Window(QWidget):
 			return False
 
 	def run_keygen(self):
-		# import ssh_install
-		# ssh_install.main()
-		p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
-		out, err = p.communicate()
-		self.output_display.setText(out + err)
+		if self.operating_system == "linux":
+			p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
+			out, err = p.communicate()
+			self.output_display.setText(out + err)
+		else:
+			print("Not implemented yet")
 
 	"""
 	def run_keygen(self):
@@ -730,12 +729,13 @@ class Window(QWidget):
 	def was_there_errors(self, err):
 		self.any_errors = err
 
-	def update_progress(self, total):
-		start = 0
-		self.progress_bar.setRange(start, total)
-		while start <= total:
-			self.progress_bar.setValue(start)
-			start += 1
+	def update_progress(self, switch):
+		if switch:
+			self.movie.start()
+			self.loading_bar.show()
+		else:
+			self.movie.stop()
+			self.loading_bar.hide()
 
 	# used to print to display what output is showing after sync is complete
 	@pyqtSlot(int, str, str)  # DO I EVEN NEED THIS SINCE I CONNECT THE SIGNAL ANYWAY?
@@ -839,6 +839,7 @@ class Window(QWidget):
 			self.test_n_save()
 			# if all user input is filled in start the sync
 			self.show_user_info.setText("Syncing...")  # give the user feedback
+			self.update_progress(True)
 			QTest.qWait(1000)
 			# creates the sync object, passing it all required input for sync
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
@@ -849,12 +850,11 @@ class Window(QWidget):
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
 			self.worker.signals.finished.connect(self.print_sync)
-			# signal to update ther progress_bar
-			self.worker.signals.prog_update.connect(self.update_progress)
 			# start the thread/sync
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
 		self.pool.waitForDone()
+		self.update_progress(False)
 		self.sync_complete()
 
 	def sync_complete(self):
@@ -871,7 +871,6 @@ class WorkerSignals(QObject):
 	finished = pyqtSignal(int, str, str)
 	# used to let show_user_info if any errors occured for coloring and feedback
 	sync_errors = pyqtSignal(bool)
-	prog_update = pyqtSignal(int)
 
 
 # object for running the sync commands
@@ -903,7 +902,6 @@ class SyncThatShit(QRunnable):
 
 	# automatically gets run as thread
 	def run(self):
-		self.dry_run()
 		try:  # used for remote options
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
@@ -957,39 +955,6 @@ class SyncThatShit(QRunnable):
 		except Exception as e:
 			err = "Ooops something went wrong there..." + "\n" + str(e)
 			self.signals.finished.emit(self.header, self.output, err)
-
-	def dry_run(self):
-		options = "-az --dry-run --stats"
-		# command for local syncs
-		if self.header == 3:
-			p = subprocess.Popen([self.command, options, self.source_path, self.dest_path],
-			                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-		# command for remote syncs
-		else:
-			if self.command == "rsync":
-				if self.delete:
-					p = subprocess.Popen(
-						[self.command, options, self.source_path, self.destination, "--delete"],
-						stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				else:
-					p = subprocess.Popen([self.command, options, self.source_path, self.destination],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-			else:
-				p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
-				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-		self.output, self.errors = p.communicate()
-		self.output = self.output.decode()
-		self.errors = self.errors.decode()
-		for line in self.output:
-			if line.startswith("Number of files:"):
-				nline = line.split()
-				for l in nline:
-					if l.isnum():
-						print(l)
-						self.signals.prog_update.emit(int(l))
 
 	def scp_copy(self):
 		hostname = self.dest_ip
