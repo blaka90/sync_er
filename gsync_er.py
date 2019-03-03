@@ -18,10 +18,16 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.6.5"
+__version__ = "1.7.0"
 
 '''
 TO FIX:
+
+set pool limit to what how many syncs i can actuallt do in 1 go and set timeout to ....?
+
+self.test_n_save()...saves to file to use but doesn't mean passwordless is setup for it!
+	-create a dropdown option for this
+	-and one to edit the file 
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 	- it does but the . trick isn't/doesn't work anymore?
@@ -238,16 +244,10 @@ class Window(QWidget):
 		self.os_radio_group.addButton(self.dest_os_windows, 2)
 		self.os_radio_group.addButton(self.dest_os_mac, 1)
 
+		# only shows if ssh is not already setup from this system
 		self.create_ssh_button = QPushButton("Generate ssh keygen/passwordless")
 		self.create_ssh_button.clicked.connect(self.run_keygen)
-		"""
-		# group just these sync option radio buttons together
-		self.sync_radio_group = QButtonGroup(self)
-		self.sync_radio_group.addButton(self.sync_option1)
-		self.sync_radio_group.addButton(self.sync_option2)
-		self.sync_radio_group.addButton(self.sync_option3)
-		self.sync_radio_group.addButton(self.sync_option4)
-		"""
+
 		# label for different options/flags used for sync
 		self.sync_option_label = QLabel(self)
 		self.sync_option_label.setText("Syncing Options:")
@@ -268,14 +268,22 @@ class Window(QWidget):
 		self.sync_option4_input.setDisabled(True)
 
 		# the options the user has to sync with (should be adding more later)
-		self.option1 = QCheckBox("1.  Documents (Linux > Linux)", self)
+		self.option1 = QCheckBox("  Desktop", self)
 		self.option1.stateChanged.connect(partial(self.get_header, header=1))
-		self.option2 = QCheckBox("2.  Downloads (Linux > Linux)", self)
+		self.option2 = QCheckBox("  Documents", self)
 		self.option2.stateChanged.connect(partial(self.get_header, header=2))
-		self.option3 = QCheckBox("3.  Custom Local Paths", self)
+		self.option3 = QCheckBox("  Downloads", self)
 		self.option3.stateChanged.connect(partial(self.get_header, header=3))
-		self.option4 = QCheckBox("4.  Custom Remote Paths", self)
+		self.option4 = QCheckBox("  Music", self)
 		self.option4.stateChanged.connect(partial(self.get_header, header=4))
+		self.option5 = QCheckBox("  Pictures", self)
+		self.option5.stateChanged.connect(partial(self.get_header, header=5))
+		self.option6 = QCheckBox("  Videos", self)
+		self.option6.stateChanged.connect(partial(self.get_header, header=6))
+		self.option7 = QCheckBox("  Custom Local Paths", self)
+		self.option7.stateChanged.connect(partial(self.get_header, header=7))
+		self.option8 = QCheckBox("  Custom Remote Paths", self)
+		self.option8.stateChanged.connect(partial(self.get_header, header=8))
 
 		# user input box for the source of local syncs
 		self.custom_local_path_src = QLineEdit(self)
@@ -337,7 +345,7 @@ class Window(QWidget):
 		top_row.addWidget(self.user_label)
 		top_row.addWidget(self.rsync_button)
 		top_row.addWidget(self.scp_button)
-
+		'''
 		# horizontal layout for custom remote user path input boxes
 		h_box_remote_paths = QHBoxLayout()
 		h_box_remote_paths.addWidget(self.custom_remote_path_src)
@@ -350,7 +358,7 @@ class Window(QWidget):
 		h_box_local_paths.addWidget(self.custom_local_path_src)
 		h_box_local_paths.addWidget(self.custom_local_path_src_button)
 		h_box_local_paths.addWidget(self.custom_local_path_dst)
-		h_box_local_paths.addWidget(self.custom_local_path_dst_button)
+		h_box_local_paths.addWidget(self.custom_local_path_dst_button)'''
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
@@ -370,7 +378,7 @@ class Window(QWidget):
 		grid = QGridLayout()
 		grid.setSpacing(10)
 		grid.setAlignment(Qt.AlignTop)
-		grid.setContentsMargins(60, 40, 30, 60)
+		grid.setContentsMargins(60, 40, 30, 30)
 		grid.addWidget(self.dest_user_label, 0, 0)
 		grid.addWidget(self.dest_user_input, 0, 1)
 		grid.addWidget(self.find_dest_info_button, 0, 2)
@@ -387,21 +395,47 @@ class Window(QWidget):
 		grid.addWidget(self.sync_option4, 6, 1)
 		grid.addWidget(self.sync_option4_input, 7, 1)
 
+		options_grid = QGridLayout()
+		options_grid.setAlignment(Qt.AlignTop)
+		options_grid.setContentsMargins(0, 10, 0, 10)
+		options_grid.addWidget(self.option1, 0, 0)
+		options_grid.addWidget(self.option2, 1, 0)
+		options_grid.addWidget(self.option3, 2, 0)
+		options_grid.addWidget(self.option4, 0, 2)
+		options_grid.addWidget(self.option5, 1, 2)
+		options_grid.addWidget(self.option6, 2, 2)
+		options_grid.addWidget(self.option7, 3, 0)
+		options_grid.addWidget(self.custom_local_path_src, 4, 0)
+		options_grid.addWidget(self.custom_local_path_src_button, 4, 1)
+		options_grid.addWidget(self.custom_local_path_dst, 4, 2)
+		options_grid.addWidget(self.custom_local_path_dst_button, 4, 3)
+		options_grid.addWidget(self.option8, 5, 0)
+		options_grid.addWidget(self.custom_remote_path_src, 6, 0)
+		options_grid.addWidget(self.custom_remote_path_src_button, 6, 1)
+		options_grid.addWidget(self.custom_remote_path_dst, 6, 2)
+		options_grid.addWidget(self.custom_remote_path_dst_button, 6, 3)
+
+		'''
 		# vertical layout for the radio buttons syncing options
 		v_box_options = QVBoxLayout()
 		v_box_options.addWidget(self.option1)
 		v_box_options.addWidget(self.option2)
 		v_box_options.addWidget(self.option3)
-		v_box_options.addLayout(h_box_local_paths)
 		v_box_options.addWidget(self.option4)
-		v_box_options.addLayout(h_box_remote_paths)
+		v_box_options.addWidget(self.option5)
+		v_box_options.addWidget(self.option6)
+		v_box_options.addWidget(self.option7)
+		v_box_options.addLayout(h_box_local_paths)
+		v_box_options.addWidget(self.option8)
+		v_box_options.addLayout(h_box_remote_paths)'''
 
 		# layout for the left hand side of ui layouts
 		v_box = QVBoxLayout()
 		v_box.addLayout(top_row)
 		v_box.addWidget(self.user_ip_label)
 		v_box.addLayout(grid)
-		v_box.addLayout(v_box_options)
+		# v_box.addLayout(v_box_options)
+		v_box.addLayout(options_grid)
 		v_box.addStretch(1)
 		v_box.addWidget(self.show_user_info)
 		v_box.addLayout(h_box_buttons)
@@ -651,24 +685,24 @@ class Window(QWidget):
 		if state == Qt.Checked:
 			self.what_to_sync.append(header)
 			# Disable input unless tick box is checked
-			if header == 3:
+			if header == 7:
 				self.custom_local_path_src.setDisabled(False)
 				self.custom_local_path_dst.setDisabled(False)
 				self.custom_local_path_src_button.setDisabled(False)
 				self.custom_local_path_dst_button.setDisabled(False)
-			if header == 4:
+			if header == 8:
 				self.custom_remote_path_src.setDisabled(False)
 				self.custom_remote_path_dst.setDisabled(False)
 				self.custom_remote_path_src_button.setDisabled(False)
 				self.custom_remote_path_dst_button.setDisabled(False)
 		else:
 			self.what_to_sync.remove(header)
-			if header == 3:
+			if header == 7:
 				self.custom_local_path_src.setDisabled(True)
 				self.custom_local_path_dst.setDisabled(True)
 				self.custom_local_path_src_button.setDisabled(True)
 				self.custom_local_path_dst_button.setDisabled(True)
-			if header == 4:
+			if header == 8:
 				self.custom_remote_path_src.setDisabled(True)
 				self.custom_remote_path_dst.setDisabled(True)
 				self.custom_remote_path_src_button.setDisabled(True)
@@ -704,6 +738,10 @@ class Window(QWidget):
 		self.option2.setChecked(False)
 		self.option3.setChecked(False)
 		self.option4.setChecked(False)
+		self.option5.setChecked(False)
+		self.option6.setChecked(False)
+		self.option7.setChecked(False)
+		self.option8.setChecked(False)
 		self.custom_remote_path_src.setText("")
 		self.custom_remote_path_dst.setText("")
 		self.custom_local_path_src.setText("")
@@ -748,8 +786,8 @@ class Window(QWidget):
 	def print_sync(self, header, output, errors):
 		# show what sync option/header was used for corresponding output and then display it
 		headers = {
-			1: "Documents (Linux > Linux)", 2: "Downloads (Linux > Linux)",
-			3: "Custom Local Paths", 4: "Custom Remote Paths"}
+			1: "Desktop", 2: "Documents", 3: "Downloads", 4: "Music", 5: "Pictures", 6: "Videos",
+			7: "Custom Local Paths", 8: "Custom Remote Paths"}
 		# if only 1 sync option is getting used this will run
 		if self.output_display.toPlainText() == "":
 			if len(errors) != 0:
@@ -771,6 +809,8 @@ class Window(QWidget):
 			else:
 				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
+
+			self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
 
 		self.update()
 
@@ -811,7 +851,7 @@ class Window(QWidget):
 		self.get_sync_info()  # pull all user input/options ready for sync
 		self.clear_display()  # essionally just removes welcome_banner at this point
 		# all remote options
-		to_check = [1, 2]
+		to_check = [1, 2, 3, 4, 5, 6]
 
 		# loop through sync options ticked
 		for h in self.what_to_sync:
@@ -825,12 +865,12 @@ class Window(QWidget):
 					self.show_info_color("darkred", "Please choose Destination Operating System type", 3000)
 					return
 			# local sync only, make sure custom paths have user input
-			elif h == 3:
+			elif h == 7:
 				if not self.custom_local_source_and_dest_okay:
 					self.show_info_color("darkred", "Please input custom paths before syncing", 3000)
 					self.custom_local_source_and_dest_okay = True
 					return
-			elif h == 4:
+			elif h == 8:
 				if not self.custom_remote_source_and_dest_okay:  # make sure custom paths have user input
 					self.show_info_color("darkred", "Please input custom paths before syncing", 3000)
 					self.custom_remote_source_and_dest_okay = True
@@ -918,7 +958,7 @@ class SyncThatShit(QRunnable):
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
 			# command for local syncs
-			if self.header == 3:
+			if self.header == 7:
 				self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
 
 			# command for remote syncs
@@ -976,10 +1016,10 @@ class SyncThatShit(QRunnable):
 			client.close()
 		except Exception as e:
 			print(e)
-			self.password = getpass()
+			password = getpass()
 			client = paramiko.SSHClient()
 			client.load_system_host_keys()
-			client.connect(hostname=hostname, port=port, username=self.dest_user, passphrase=self.password)
+			client.connect(hostname=hostname, port=port, username=self.dest_user, passphrase=password)
 			with SCPClient(client.get_transport()) as scp:
 				if os.path.isfile(self.source_path):
 					scp.put(self.source_path, self.dest_path)
@@ -991,6 +1031,8 @@ class SyncThatShit(QRunnable):
 
 	# sets the paths of the sync depending on what sync option/header is used
 	def sync_sort(self):
+		sp = ""
+		dp = ""
 		# force scp if windows is involved
 		if self.dest_os == "windows":
 			if self.user_os != "windows":
@@ -1004,48 +1046,46 @@ class SyncThatShit(QRunnable):
 			self.options = "-Paiurv"
 			self.delete = True
 
-		# sets if self.option1 is ticked
+		if self.user_os == "linux":
+			sp = "/home/" + self.user
+		elif self.user_os == "mac":
+			sp = "/Users/" + self.user
+		elif self.user_os == "windows":
+			sp = "C:/Users/" + self.user
+
+		if self.dest_os == "linux":
+			dp = "/home/" + self.dest_user
+		elif self.dest_os == "mac":
+			dp = "/Users/" + self.dest_user
+		elif self.dest_os == "windows":
+			dp = "C:/Users/" + self.dest_user
+
 		if self.header == 1:
-			if self.user_os == "linux":
-				if self.command == "scp":
-					self.source_path = "/home/" + self.user + "/Documents/."
-				else:
-					self.source_path = "/home/" + self.user + "/Documents/"
-			elif self.user_os == "mac":
-				self.source_path = "/Users/" + self.user + "/Documents/"
-			elif self.user_os == "windows":
-				self.source_path = "C:/Users/" + self.user + "/Documents/"
-
-			if self.dest_os == "linux":
-				self.dest_path = "/home/" + self.dest_user + "/Documents/"
-			elif self.dest_os == "mac":
-				self.dest_path = "/Users/" + self.dest_user + "/Documents/"
-			elif self.dest_os == "windows":
-				self.dest_path = "C:/Users/" + self.dest_user + "/Documents/"
-
-		# sets if self.option2 is ticked
+			self.source_path = sp + "/Desktop/"
+			self.dest_path = dp + "/Desktop/"
 		elif self.header == 2:
-			if self.user_os == "linux":
-				self.source_path = "/home/" + self.user + "/Downloads/"
-			elif self.user_os == "mac":
-				self.source_path = "/Users/" + self.user + "/Downloads/"
-			elif self.user_os == "windows":
-				self.source_path = "C:/Users/" + self.user + "/Downloads/"
-
-			if self.dest_os == "linux":
-				self.dest_path = "/home/" + self.dest_user + "/Downloads/"
-			elif self.dest_os == "mac":
-				self.dest_path = "/Users/" + self.dest_user + "/Downloads/"
-			elif self.dest_os == "windows":
-				self.dest_path = "C:/Users/" + self.dest_user + "/Downloads/"
-
-		# sets if self.option3 is ticked
+			self.source_path = sp + "/Documents/"
+			self.dest_path = dp + "/Documents/"
 		elif self.header == 3:
+			self.source_path = sp + "/Downloads/"
+			self.dest_path = dp + "/Downloads/"
+		elif self.header == 4:
+			self.source_path = sp + "/Music/"
+			self.dest_path = dp + "/Music/"
+		elif self.header == 5:
+			self.source_path = sp + "/Pictures/"
+			self.dest_path = dp + "/Pictures/"
+		elif self.header == 6:
+			self.source_path = sp + "/Videos/"
+			self.dest_path = dp + "/Videos/"
+
+		# sets if self.option7 is ticked
+		if self.header == 7:
 			self.source_path = self.custom_local_source_path
 			self.dest_path = self.custom_local_dest_path
 
-		# sets if self.option4 is ticked
-		elif self.header == 4:
+		# sets if self.option8 is ticked
+		if self.header == 8:
 			self.source_path = self.custom_remote_source_path
 			self.dest_path = self.custom_remote_dest_path
 
