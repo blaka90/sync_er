@@ -811,6 +811,7 @@ class Window(QWidget):
 				                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
 			self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
+			self.output_display.verticalScrollBar().hasTracking()
 
 		self.update()
 
