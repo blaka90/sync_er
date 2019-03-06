@@ -1,8 +1,11 @@
 import subprocess
 import sys
 from getpass import getuser
+import os
 
 # mac needs to homebrew install ssh-copy-id for this to work
+
+this_user = getuser()
 
 
 def get_os():
@@ -19,21 +22,20 @@ def get_os():
 
 
 def get_dos():
-	os = input("\nDestination OS (l)inux/(m)ac/(w)indows: ")
-	if os == "l":
+	os = input("\nDestination OS\n\n(L)inux\n(M)ac\n(W)indows\n(L/M/W)?: ")
+	if os.lower() == "l":
 		dos = "linux"
-	elif os == "m":
+	elif os.lower() == "m":
 		dos = "mac"
-	elif os == "w":
+	elif os.lower() == "w":
 		dos = "windows"
 	else:
-		print("Invalid option try again\noptions:\n(l)inux\n(m)ac\n(w)indows\n")
+		print("Invalid option try again\noptions:\n(L)inux\n(M)ac\n(W)indows\n")
 		get_dos()
 	return dos
 
 
 def run_passwordless():
-	this_user = getuser()
 
 	user = input("\nDestination Username: ")
 	ip = input("\nDestination IP: ")
@@ -68,14 +70,30 @@ def run_passwordless():
 
 
 def main():
-	if get_os() == "mac":
-		command = "ssh-gen"
-	else:
+	just_passwordless = False
+	command = ""
+	if get_os() == "linux":
+		ssh_path = "/home/{}/.ssh/id_rsa.pub".format(this_user)
 		command = "ssh-keygen"
+		if os.path.isfile(ssh_path):
+			just_passwordless = True
+	elif get_os() == "mac:":
+		ssh_path = "/Users/{}/.ssh/id_rsa.pub".format(this_user)
+		command = "ssh-gen"
+		if os.path.isfile(ssh_path):
+			just_passwordless = True
+	elif get_os() == "windows":
+		ssh_path = "C:/Users/{}/.ssh/id_rsa.pub".format(this_user)
+		command = "ssh-keygen"
+		if os.path.isfile(ssh_path):
+			just_passwordless = True
 
-	p = subprocess.Popen([command])
-	p.communicate()
-	run_passwordless()
+	if not just_passwordless:
+		p = subprocess.Popen([command])
+		p.communicate()
+		run_passwordless()
+	else:
+		run_passwordless()
 
 
 if __name__ == "__main__":
