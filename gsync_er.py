@@ -6,6 +6,7 @@ from PyQt5.QtTest import QTest
 import subprocess
 import os
 import sys
+import pexpect
 from getpass import getuser, getpass
 import netifaces as ni
 import paramiko
@@ -18,24 +19,19 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.7.0"
+__version__ = "1.7.2"
 
 '''
 TO FIX:
 
-set pool limit to what how many syncs i can actuallt do in 1 go and set timeout to ....?
-
-self.test_n_save()...saves to file to use but doesn't mean passwordless is setup for it!
-	-create a dropdown option for this
-	-and one to edit the file 
+possibly a way to change saved_ips incase ip changes
+	-edit the saved_ips file 
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 	- it does but the . trick isn't/doesn't work anymore?
 	-added warning for now until fixed?
 
 can't uncheck dest_os_* in clear settings (tried don't know how????)
-
-self.run_keygen() needs sorting for if running on different os and even diff linux distro
 	
 JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
@@ -44,11 +40,7 @@ JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 
 TO ADD:
 
-possibly a way to change saved_ips incase ip changes(maybe implement in test_n_save) 
-
-display how to use guide on output display???  (paths, generate keygen shit and that)
-
-add more default syncing options
+add instructions and how to's in README aswel as dependencies and windows install and shit
 	
 '''
 
@@ -138,11 +130,15 @@ class Window(QWidget):
 
 	# used to show different color and duration for user feedback for show_user_info label
 	def show_info_color(self, color, message, time):
+		'''
 		self.show_user_info.setStyleSheet("color:" + color)
 		self.show_user_info.setText(message)
 		QTest.qWait(time)
 		self.show_user_info.setStyleSheet("color:white")
-		self.show_user_info.setText("")
+		self.show_user_info.setText("")'''
+		self.statusbar.setStyleSheet("color:" + color)
+		self.statusbar.showMessage(message, time)
+		# self.statusbar.setStyleSheet("color:white")
 
 	# initilize the user interface
 	def init_ui(self):
@@ -159,28 +155,29 @@ class Window(QWidget):
 		self.output_display = QTextEdit(self)
 		self.output_display.setFixedWidth(800)
 		self.output_display.setFixedHeight(750)
+		self.output_display.setCursorWidth(0)
 		self.output_display.setText(self.welcome_banner())
 
 		# loadingbar gif for syncs
 		self.loading_bar = QLabel(self)
 		self.movie = QMovie("loading.gif")
 		self.loading_bar.setMovie(self.movie)
-		self.loading_bar.setFixedWidth(800)
+		self.loading_bar.setFixedWidth(570)
 		self.loading_bar.setAlignment(Qt.AlignCenter)
 
 		"""left side of gui"""
 
 		# label for showing the users username
 		self.user_label = QLabel(self)
-		self.user_label.setText("Your Username: " + self.user)
+		self.user_label.setText("Username: " + self.user)
 		self.user_label.setAlignment(Qt.AlignTop)
-		self.user_label.setStyleSheet('color: gray')
+		self.user_label.setStyleSheet('color: black')
 
 		# label for showing the users IP Address
 		self.user_ip_label = QLabel(self)
-		self.user_ip_label.setText("Your IP Address: " + self.user_ip)
+		self.user_ip_label.setText("IP Address: " + self.user_ip)
 		self.user_ip_label.setAlignment(Qt.AlignTop)
-		self.user_ip_label.setStyleSheet('color: gray')
+		self.user_ip_label.setStyleSheet('color: black')
 
 		# button for changing command to rsync (default)
 		self.rsync_button = QPushButton("Rsync")
@@ -205,6 +202,12 @@ class Window(QWidget):
 			self.scp_button.setChecked(True)
 			self.scp_command()
 
+		# label for section Destination options
+		self.system_label_dest = QLabel(self)
+		self.system_label_dest.setText("Destination Options")
+		self.system_label_dest.setStyleSheet("color: gray")
+		self.system_label_dest.setAlignment(Qt.AlignCenter)
+
 		# label for destination username
 		self.dest_user_label = QLabel(self)
 		self.dest_user_label.setText("Destination Username:")
@@ -213,6 +216,11 @@ class Window(QWidget):
 		self.dest_user_input = QLineEdit(self)
 		self.dest_user_input.setFixedWidth(220)
 		self.dest_user_input.setPlaceholderText("Username of other computer")
+
+		# experimental lazy way of getting saved ip's
+		self.find_dest_info_button = QPushButton("Find")
+		self.find_dest_info_button.setFixedWidth(60)
+		self.find_dest_info_button.clicked.connect(self.get_saved_ip)
 
 		# label for destination ip address
 		self.dest_ip_label = QLabel(self)
@@ -224,10 +232,10 @@ class Window(QWidget):
 		# self.dest_ip_input.setText("192.168.0.")  # I'm lazy      ----may remove this coz find button
 		self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
-		# experimental lazy way of getting saved ip's
-		self.find_dest_info_button = QPushButton("Find")
-		self.find_dest_info_button.setFixedWidth(60)
-		self.find_dest_info_button.clicked.connect(self.get_saved_ip)
+		# easier way of getting saved ip's
+		self.get_added_button = QPushButton("choose")
+		self.get_added_button.setFixedWidth(60)
+		self.get_added_button.clicked.connect(self.get_added_user)
 
 		# get the os type of destination and later try change path accordingly
 		self.dest_os_label = QLabel(self)
@@ -245,12 +253,17 @@ class Window(QWidget):
 		self.os_radio_group.addButton(self.dest_os_mac, 1)
 
 		# only shows if ssh is not already setup from this system
-		self.create_ssh_button = QPushButton("Generate ssh keygen/passwordless")
-		self.create_ssh_button.clicked.connect(self.run_keygen)
+		self.gen_ssh_keys_button = QPushButton("Generate SSH Keygen")
+		self.gen_ssh_keys_button.clicked.connect(self.run_keygen)
 
-		# label for different options/flags used for sync
-		self.sync_option_label = QLabel(self)
-		self.sync_option_label.setText("Syncing Options:")
+		self.add_user = QPushButton("Add New Destination")
+		self.add_user.clicked.connect(self.run_add_user)
+
+		# label for section flags used for syncs
+		self.system_label_flag_options = QLabel(self)
+		self.system_label_flag_options.setText("Flag Options")
+		self.system_label_flag_options.setAlignment(Qt.AlignCenter)
+		self.system_label_flag_options.setStyleSheet("color: gray")
 		# this is the default, standard rsync option
 		self.sync_option1 = QRadioButton("Default")
 		self.sync_option1.setChecked(True)
@@ -266,6 +279,12 @@ class Window(QWidget):
 		self.sync_option4_input.setFixedWidth(100)
 		self.sync_option4_input.setPlaceholderText("eg. -Paiurv")
 		self.sync_option4_input.setDisabled(True)
+
+		# label for section syncing options
+		self.system_label_sync_options = QLabel(self)
+		self.system_label_sync_options.setText("Sync_ing Options")
+		self.system_label_sync_options.setAlignment(Qt.AlignCenter)
+		self.system_label_sync_options.setStyleSheet("color: gray")
 
 		# the options the user has to sync with (should be adding more later)
 		self.option1 = QCheckBox("  Desktop", self)
@@ -338,6 +357,9 @@ class Window(QWidget):
 		self.clear_display_button = QPushButton("Clear Display", self)
 		self.clear_display_button.clicked.connect(self.clear_display)
 
+		# should have used QMainWindow but am here now -_-
+		self.statusbar = QStatusBar(self)
+
 		"""start of layouts"""
 
 		# layout for left top row
@@ -345,20 +367,6 @@ class Window(QWidget):
 		top_row.addWidget(self.user_label)
 		top_row.addWidget(self.rsync_button)
 		top_row.addWidget(self.scp_button)
-		'''
-		# horizontal layout for custom remote user path input boxes
-		h_box_remote_paths = QHBoxLayout()
-		h_box_remote_paths.addWidget(self.custom_remote_path_src)
-		h_box_remote_paths.addWidget(self.custom_remote_path_src_button)
-		h_box_remote_paths.addWidget(self.custom_remote_path_dst)
-		h_box_remote_paths.addWidget(self.custom_remote_path_dst_button)
-
-		# horizontal layout for custom local user path input boxes
-		h_box_local_paths = QHBoxLayout()
-		h_box_local_paths.addWidget(self.custom_local_path_src)
-		h_box_local_paths.addWidget(self.custom_local_path_src_button)
-		h_box_local_paths.addWidget(self.custom_local_path_dst)
-		h_box_local_paths.addWidget(self.custom_local_path_dst_button)'''
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
@@ -367,91 +375,89 @@ class Window(QWidget):
 		h_box_buttons.addWidget(self.clear_settings_button)
 		h_box_buttons.addWidget(self.clear_display_button)
 
-		# horizontal layout for os radio buttons inside grid layout
+		# horizontal layout for os radio buttons inside destination_grid layout
 		h_box_os_buttons = QHBoxLayout()
 		# h_box_os_buttons.setContentsMargins(50, 0, 0, 0)
 		h_box_os_buttons.addWidget(self.dest_os_linux)
 		h_box_os_buttons.addWidget(self.dest_os_windows)
 		h_box_os_buttons.addWidget(self.dest_os_mac)
 
-		# grid layout for most of the user input and options
-		grid = QGridLayout()
-		grid.setSpacing(10)
-		grid.setAlignment(Qt.AlignTop)
-		grid.setContentsMargins(60, 40, 30, 30)
-		grid.addWidget(self.dest_user_label, 0, 0)
-		grid.addWidget(self.dest_user_input, 0, 1)
-		grid.addWidget(self.find_dest_info_button, 0, 2)
-		grid.addWidget(self.dest_ip_label, 1, 0)
-		grid.addWidget(self.dest_ip_input, 1, 1)
-		grid.addWidget(self.dest_os_label, 2, 0)
-		grid.addLayout(h_box_os_buttons, 2, 1)
+		# destination_grid layout for most of the user input and options
+		destination_grid = QGridLayout()
+		destination_grid.setSpacing(20)
+		destination_grid.setAlignment(Qt.AlignTop)
+		destination_grid.setContentsMargins(60, 10, 30, 20)
+		destination_grid.addWidget(self.dest_user_label, 0, 0)
+		destination_grid.addWidget(self.dest_user_input, 0, 1)
+		destination_grid.addWidget(self.find_dest_info_button, 0, 2)
+		destination_grid.addWidget(self.dest_ip_label, 1, 0)
+		destination_grid.addWidget(self.dest_ip_input, 1, 1)
+		destination_grid.addWidget(self.get_added_button, 1, 2)
+		destination_grid.addWidget(self.dest_os_label, 2, 0)
+		destination_grid.addLayout(h_box_os_buttons, 2, 1)
 		if not self.has_ssh_keygen():
-			grid.addWidget(self.create_ssh_button, 3, 1)
-		grid.addWidget(self.sync_option_label, 4, 0)
-		grid.addWidget(self.sync_option1, 5, 0)
-		grid.addWidget(self.sync_option2, 5, 1)
-		grid.addWidget(self.sync_option3, 6, 0)
-		grid.addWidget(self.sync_option4, 6, 1)
-		grid.addWidget(self.sync_option4_input, 7, 1)
+			destination_grid.addWidget(self.gen_ssh_keys_button, 3, 0)
+		destination_grid.addWidget(self.add_user, 3, 1)
 
-		options_grid = QGridLayout()
-		options_grid.setAlignment(Qt.AlignTop)
-		options_grid.setContentsMargins(0, 10, 0, 10)
-		options_grid.addWidget(self.option1, 0, 0)
-		options_grid.addWidget(self.option2, 1, 0)
-		options_grid.addWidget(self.option3, 2, 0)
-		options_grid.addWidget(self.option4, 0, 2)
-		options_grid.addWidget(self.option5, 1, 2)
-		options_grid.addWidget(self.option6, 2, 2)
-		options_grid.addWidget(self.option7, 3, 0)
-		options_grid.addWidget(self.custom_local_path_src, 4, 0)
-		options_grid.addWidget(self.custom_local_path_src_button, 4, 1)
-		options_grid.addWidget(self.custom_local_path_dst, 4, 2)
-		options_grid.addWidget(self.custom_local_path_dst_button, 4, 3)
-		options_grid.addWidget(self.option8, 5, 0)
-		options_grid.addWidget(self.custom_remote_path_src, 6, 0)
-		options_grid.addWidget(self.custom_remote_path_src_button, 6, 1)
-		options_grid.addWidget(self.custom_remote_path_dst, 6, 2)
-		options_grid.addWidget(self.custom_remote_path_dst_button, 6, 3)
+		flag_options_grid = QGridLayout()
+		flag_options_grid.setContentsMargins(30, 10, 30, 20)
+		flag_options_grid.addWidget(self.sync_option1, 0, 0)
+		flag_options_grid.addWidget(self.sync_option2, 0, 1)
+		flag_options_grid.addWidget(self.sync_option3, 0, 2)
+		flag_options_grid.addWidget(self.sync_option4, 0, 3)
+		flag_options_grid.addWidget(self.sync_option4_input, 1, 3)
 
-		'''
-		# vertical layout for the radio buttons syncing options
-		v_box_options = QVBoxLayout()
-		v_box_options.addWidget(self.option1)
-		v_box_options.addWidget(self.option2)
-		v_box_options.addWidget(self.option3)
-		v_box_options.addWidget(self.option4)
-		v_box_options.addWidget(self.option5)
-		v_box_options.addWidget(self.option6)
-		v_box_options.addWidget(self.option7)
-		v_box_options.addLayout(h_box_local_paths)
-		v_box_options.addWidget(self.option8)
-		v_box_options.addLayout(h_box_remote_paths)'''
+		sync_options_grid = QGridLayout()
+		sync_options_grid.setContentsMargins(0, 10, 0, 10)
+		sync_options_grid.addWidget(self.option1, 0, 0)
+		sync_options_grid.addWidget(self.option2, 1, 0)
+		sync_options_grid.addWidget(self.option3, 2, 0)
+		sync_options_grid.addWidget(self.option4, 0, 2)
+		sync_options_grid.addWidget(self.option5, 1, 2)
+		sync_options_grid.addWidget(self.option6, 2, 2)
+		sync_options_grid.addWidget(self.option7, 3, 0)
+		sync_options_grid.addWidget(self.custom_local_path_src, 4, 0)
+		sync_options_grid.addWidget(self.custom_local_path_src_button, 4, 1)
+		sync_options_grid.addWidget(self.custom_local_path_dst, 4, 2)
+		sync_options_grid.addWidget(self.custom_local_path_dst_button, 4, 3)
+		sync_options_grid.addWidget(self.option8, 5, 0)
+		sync_options_grid.addWidget(self.custom_remote_path_src, 6, 0)
+		sync_options_grid.addWidget(self.custom_remote_path_src_button, 6, 1)
+		sync_options_grid.addWidget(self.custom_remote_path_dst, 6, 2)
+		sync_options_grid.addWidget(self.custom_remote_path_dst_button, 6, 3)
 
 		# layout for the left hand side of ui layouts
-		v_box = QVBoxLayout()
-		v_box.addLayout(top_row)
-		v_box.addWidget(self.user_ip_label)
-		v_box.addLayout(grid)
-		# v_box.addLayout(v_box_options)
-		v_box.addLayout(options_grid)
-		v_box.addStretch(1)
-		v_box.addWidget(self.show_user_info)
-		v_box.addLayout(h_box_buttons)
+		v_box_left = QVBoxLayout()
+		v_box_left.addLayout(top_row)
+		v_box_left.addWidget(self.user_ip_label)
+		v_box_left.addSpacing(10)
+		v_box_left.addWidget(self.system_label_dest)
+		v_box_left.addLayout(destination_grid)
+		v_box_left.addWidget(self.system_label_flag_options)
+		v_box_left.addLayout(flag_options_grid)
+		v_box_left.addWidget(self.system_label_sync_options)
+		v_box_left.addLayout(sync_options_grid)
+		v_box_left.addStretch(1)
+		# v_box_left.addWidget(self.show_user_info)
+		v_box_left.addWidget(self.loading_bar)
+		v_box_left.addLayout(h_box_buttons)
 
 		# vertical layout for output_display and progressbar
 		v_box_right = QVBoxLayout()
 		v_box_right.addWidget(self.output_display)
-		v_box_right.addWidget(self.loading_bar)
+		# v_box_right.addWidget(self.loading_bar)
 
 		# horizontal layout to split user input on left and display on right
 		h_box = QHBoxLayout()
-		h_box.addLayout(v_box)
+		h_box.addLayout(v_box_left)
 		h_box.addLayout(v_box_right)
 
+		v = QVBoxLayout()
+		v.addLayout(h_box)
+		v.addWidget(self.statusbar)
+
 		# set the layout
-		self.setLayout(h_box)
+		self.setLayout(v)
 
 	# checks if user has generated ssh keygen before and shows button to generate if not
 	def has_ssh_keygen(self):
@@ -468,106 +474,199 @@ class Window(QWidget):
 			if os.path.isfile(check_path + "id_rsa.pub"):
 				return True
 			else:
+				self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
+				                               "to get started!", 15000)
 				return False
 		else:
+			self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
+			                               "to get started!", 15000)
 			return False
 
-	def run_keygen(self):
-		if self.operating_system == "linux":
-			p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
-			out, err = p.communicate()
-			self.output_display.setText(out + err)
-		else:
-			print("Not implemented yet")
-
-	"""
-	def run_keygen(self):
+	def run_add_user(self):
 		self.get_sync_info()
+		p_com = "ssh-copy-id -i id_rsa.pub " + self.dest_user + "@" + self.dest_ip
 		if self.dest_user_input.text() == "":
-			self.show_info_color("red", "Please fill out all destination Info", 3000)
+			self.show_info_color("red", "Please fill out all Destination Info", 3000)
 			return
 		if self.dest_ip_input.text() == "":
-			self.show_info_color("red", "Please fill out all destination Info", 3000)
+			self.show_info_color("red", "Please fill Destination Ip Address", 3000)
 			return
 		if self.dest_operating_system == "":
+			self.show_info_color("red", "Please select Destination OS", 3000)
 			return
-		if self.operating_system == "mac:":
-			command = "ssh-gen"
-		else:
-			command = "ssh-keygen"
 
-		self.show_info_color("white", "Please type a new password to encrypt your ssh keys\n"
-		                              "into the terminal", 0)
-		'''
-		text, okpressed = QInputDialog.getText(self, "SSH Password", "Password:", QLineEdit.Password, "")
-		if okpressed and text != '':
-			text = text.encode()'''
-
-		p = subprocess.Popen([command], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-		                     stdin=subprocess.PIPE)
-
-		outp, err = p.communicate(input=b"\n")
-
-		if outp and not err:
-			self.show_info_color("green", "Successfully Created ssh keys!", 5000)
-			self.run_passwordless()
-		else:
-			self.show_info_color("red", "Failed to create ssh keys!", 5000)
-			self.output_display.setText("errors:{}".format(err.decode()))
-
-	def run_passwordless(self):
-		ssh_path = ""
-		if self.operating_system == "linux":
-			ssh_path = "/home/{}/.ssh/".format(self.user)
-		elif self.operating_system == "mac:":
-			ssh_path = "/Users/{}/.ssh/".format(self.user)
-		elif self.operating_system == "windows":
-			ssh_path = "C:/Users/{}/.ssh/".format(self.user)
-		os.chdir(ssh_path)
-		command = "ssh-copy-id -i id_rsa.pub " + self.dest_user + "@" + self.dest_ip
-		p = subprocess.Popen([command], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-		                     stdin=subprocess.PIPE)
-
-		outp, err = p.communicate()
-
-		if outp and not err:
-			self.show_info_color("green", "Successfully Transfered ssh keys!", 5000)
-			self.test_n_save()
-		else:
-			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
-			self.output_display.setText("errors:{}".format(err.decode()))
-		"""
-
-	# check if user and ip are already saved and save if not
-	def test_n_save(self):
-		# self.show_info_color("yellow", "Trying to save User data", 3000)
+		self.show_info_color("yellow", "Trying to save User data", 10000)
 		to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
 		try:
 			saved_ips = open("saved_ips.txt", "r")
 			for line in saved_ips.readlines():
 				if line == to_save:
 					saved_ips.close()
-					# self.show_info_color("darkred", "User already saved!", 3000)
+					self.show_info_color("darkred", "User already saved!", 4000)
 					return
 
 		except FileNotFoundError:
-			self.show_info_color("darkred", "Failed to load Previous user data", 5000)
+			self.show_info_color("darkred", "Failed to load user data", 5000)
 
-		# make sure the destination is online(exists)
-		if self.operating_system == "windows":
-			response = os.system("ping -n 1 " + self.dest_ip)
+		ask_pass, ok_pressed = QInputDialog.getText(self, "Adding New User", "Destination Password: ",
+		                                            QLineEdit.Password, "")
+		if ok_pressed and ask_pass != '':
+			pex_pass = ask_pass
 		else:
-			response = os.system("ping -c 1 " + self.dest_ip)
+			self.show_info_color("red", "Adding New User Cancelled!", 5000)
+			return
 
-		# and then check the response...
-		if response == 0:
-			# if valid destination save to saved_ips.txt list
-			with open("saved_ips.txt", "a+") as f:
-				f.write(to_save)
-				f.close()
-				self.show_info_color("green", "successfully saved User data!", 3000)
+		if self.operating_system == "linux":
+			ssh_path = "/home/{}/.ssh/id_rsa.pub".format(self.user)
+			command = "ssh-copy-id"
+			option = "-i"
+			dest = self.dest_user + "@" + self.dest_ip
+			p_com = command + " " + option + " " + ssh_path + " " + dest
 
-	# if user has entered connected to destination before, can get the ip without typing it
+		elif self.operating_system == "mac:":
+			ssh_path = "/Users/{}/.ssh/id_rsa.pub".format(self.user)
+			command = "ssh-copy-id"
+			option = "-i"
+			dest = self.dest_user + "@" + self.dest_ip
+			p_com = command + " " + option + " " + ssh_path + " " + dest
+
+		elif self.operating_system == "windows":
+			ssh_path = "C:/Users/{}/.ssh/id_rsa.pub".format(self.user)
+			command = "scp"
+			dest = self.dest_user + "@" + self.dest_ip + ":/home/" + self.dest_user + "/.ssh/authorized_keys"
+			p_com = command + " " + ssh_path + " " + dest
+
+		if self.operating_system == "windows":
+			self.fail_safe()
+		else:
+			ndata = ""
+			shell = pexpect.spawn(p_com)
+			try:
+				shell.expect('.*ssword.*:')
+				shell.sendline(pex_pass)
+				shell.expect(pexpect.exceptions.EOF, timeout=None)
+				cmd_show_data = shell.before
+				cmd_output = cmd_show_data.split(b'\r\n')
+				shell.close()
+				for data in cmd_output:
+					ndata += data.decode()
+
+				if "Number of key(s) added: 1" in ndata:
+					self.show_info_color("green", "Successfully Transfered ssh keys!", 4000)
+					self.output_display.setText(ndata)  # ----------------------REMOVE THIS WHEN WORKING OKAY!
+					with open("saved_ips.txt", "a+") as f:
+						f.write(to_save)
+						f.close()
+						self.show_info_color("green", "successfully saved User data!", 5000)
+
+			except pexpect.exceptions.EOF as e:
+				shell.expect(pexpect.exceptions.EOF, timeout=None)
+				shell.close()
+				self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
+				self.show_info_color("red", "Failed to save User data!", 5000)
+				self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
+				return
+
+	def fail_safe(self):
+		self.show_info_color("yellow", "Trying a different method", 5000)
+		if self.operating_system == "linux":
+			p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
+			out, err = p.communicate()
+			self.output_display.setText(out + err)
+		elif self.operating_system == "windows":
+			p = subprocess.Popen(["cmd.exe", "-e", "'python3' 'ssh_install.py'"])
+			out, err = p.communicate()
+			self.output_display.setText(out + err)
+		else:
+			print("Not implemented yet")
+
+	def run_keygen(self):
+		if self.operating_system == "mac:":
+			command = "ssh-gen"
+		else:
+			command = "ssh-keygen"
+
+		text, okpressed = QInputDialog.getText(self, "Generating SSH key pair", "Key Pair Password(Blank for None):",
+		                                       QLineEdit.Password, "")
+		if okpressed:
+			kp_pass = text
+		else:
+			self.show_info_color("red", "Generate SSH Key Pair Cancelled!", 5000)
+			return
+
+		if self.operating_system == "windows":
+			self.fail_safe()
+		else:
+			ndata = ""
+			shell = pexpect.spawn(command)
+			try:
+				shell.expect('.*file.*:')
+				shell.sendline('\r\n')
+				shell.expect('.*passphrase.*:')
+				shell.sendline(kp_pass)
+				shell.expect('.*passphrase.*:')
+				shell.sendline(kp_pass)
+				shell.expect(pexpect.exceptions.EOF, timeout=None)
+				cmd_show_data = shell.before
+				cmd_output = cmd_show_data.split(b'\r\n')
+				shell.close()
+				for data in cmd_output:
+					ndata += data.decode()
+
+				if "randomart image" in ndata:
+					self.show_info_color("green", "Successfully Created ssh keys!", 4000)
+					self.output_display.setText(ndata)  # ----------------------REMOVE THIS WHEN WORKING OKAY!
+					self.gen_ssh_keys_button.hide()
+					QTest.qWait(3000)
+					self.show_info_color("yellow", "Press 'Add New Destination' Button to add a new user and "
+					                               "begin Sync_ing with!", 10000)
+
+			except pexpect.exceptions.EOF as e:
+				shell.expect(pexpect.exceptions.EOF, timeout=None)
+				shell.close()
+				self.show_info_color("red", "Failed to Create ssh keys!", 5000)
+				self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
+				return
+
+	# if user has added new destination, can get all user info without typing it
+	def get_added_user(self):
+		try:
+			# check for user in saved_ips list and set in dest_ip_input
+			saved_ips = open("saved_ips.txt", "r")
+			saved_ips_lines = saved_ips.readlines()
+			saved_ips.close()
+		except FileNotFoundError:
+			self.show_info_color("red", "You must use 'Add New Destination' button at least "
+			                            "once for this Feature to work!", 5000)
+			return
+
+		num_lines = len(saved_ips_lines)
+		if num_lines == 0:
+			self.show_info_color("red", "No users seem to be added?", 5000)
+		users = []
+		for line in saved_ips_lines:
+			u_data = line.split()
+			users.append(u_data[0])
+
+		user, okpressed = QInputDialog.getItem(self, "Load User Info", "Saved Users:", users, 0, False)
+		if okpressed and user:
+
+			for line in saved_ips_lines:
+				ndest_data = line.split()
+				if user == ndest_data[0]:
+					self.dest_user_input.setText(ndest_data[0])
+					self.dest_ip_input.setText(ndest_data[1])
+					if ndest_data[2] == "linux":
+						self.dest_os_linux.setChecked(True)
+					elif ndest_data[2] == "mac":
+						self.dest_os_mac.setChecked(True)
+					elif ndest_data[2] == "windows":
+						self.dest_os_windows.setChecked(True)
+					return
+				else:
+					continue
+
+	# if user has entered and connected to destination before, can get the ip without typing it
 	def get_saved_ip(self):
 		if self.dest_user_input.text() == "":
 			self.show_info_color("darkred", "You must specify Username to find Destination user's info!", 5000)
@@ -594,14 +693,15 @@ class Window(QWidget):
 						self.dest_os_windows.setChecked(True)
 					return
 				elif num == num_lines:
-					self.show_info_color("darkred", "User information is not saved for this User!", 5000)
+					self.show_info_color("darkred", "Information is not saved for this User!", 5000)
 					self.dest_ip_input.setText("")
 				else:
 					continue
 		except FileNotFoundError:
 			self.show_info_color("darkred", "Destination Username and IP must have been entered at "
-			                                "least once \nfor this Feature to work!", 5000)
+			                                "least once for this Feature to work!", 5000)
 
+	# get which radio button is pressed for destination OS
 	def get_dest_os(self):
 		if self.dest_os_linux.isChecked():
 			self.dest_operating_system = "linux"
@@ -616,8 +716,8 @@ class Window(QWidget):
 	def get_browser(self, custom_path):
 		if custom_path == "remote_dest":
 			if self.dest_user_input.text() == "":
-				self.show_info_color("red", "This Option only works if destination Username has been input\n"
-				                            "EXPERIMENTAL", 3000)
+				self.show_info_color("red", "This Option only works if destination Username has been input...\t"
+				                            "**EXPERIMENTAL**", 3000)
 				return
 			else:
 				self.brow = MyFileBrowser(self.operating_system)
@@ -655,9 +755,9 @@ class Window(QWidget):
 	# (on by default) button to enable rsync command instead of scp
 	def rsync_command(self):
 		if self.operating_system == "windows":
-			self.show_info_color("darkred", "RSYNC OPTION IS NOT AVAILABLE ON WINDOWS\n...\n"
-			                                "*this option will run but is not advised*\n...\n"
-			                                "if you have actaully managed install rsync in windows ignore this\n", 8000)
+			self.show_info_color("darkred", "RSYNC OPTION IS NOT AVAILABLE ON WINDOWS\t...\t"
+			                                "*this option will run but is not advised*\t...\t"
+			                                "if you have actaully managed install rsync in windows ignore this", 8000)
 		self.command = "rsync"
 		self.rsync_button.setStyleSheet('color: green')
 		self.scp_button.setStyleSheet('color: darkred')
@@ -669,8 +769,8 @@ class Window(QWidget):
 		self.scp_button.setStyleSheet('color: green')
 		self.rsync_button.setStyleSheet('color: darkred')
 		self.rsync_button.setChecked(False)
-		self.show_info_color("red", "!!! WARNING !!!\n\nScp option only copies the folder to destination\n"
-		                            "to copy only the contents of a folder use Rsync!\n"
+		self.show_info_color("red", "!!! WARNING !!!\t\tScp option only copies the folder to destination\t"
+		                            "to copy only the contents of a folder use Rsync!\t"
 		                            "*Applies to all options", 10000)
 
 	# disables input for custom option/flag if unchecked...vice versa
@@ -810,7 +910,7 @@ class Window(QWidget):
 				self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
 				                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
-			self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
+		self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
 
 		self.update()
 
@@ -882,9 +982,8 @@ class Window(QWidget):
 				if self.dest_operating_system == "":
 					self.show_info_color("darkred", "Please choose Destination Operating System type", 3000)
 					return
-			self.test_n_save()
 			# if all user input is filled in start the sync
-			self.show_user_info.setText("Syncing...")  # give the user feedback
+			self.show_info_color("white", "Syncing...", 100000)  # give the user feedback
 			self.update_progress(True)
 			QTest.qWait(1000)
 			# creates the sync object, passing it all required input for sync
