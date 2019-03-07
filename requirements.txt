@@ -1,3 +1,4 @@
+pexpect
 scp
 paramiko
 netifaces
