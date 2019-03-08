@@ -22,6 +22,7 @@ def get_os():
 
 
 def get_dos():
+	dos = ""
 	os = input("\nDestination OS\n\n(L)inux\n(M)ac\n(W)indows\n(L/M/W)?: ")
 	if os.lower() == "l":
 		dos = "linux"
@@ -47,26 +48,36 @@ def run_passwordless():
 		option = "-i"
 		dest = user + "@" + ip
 		p = subprocess.Popen([command, option, ssh_path, dest])
-		p.communicate()
+		out, err = p.communicate()
 	elif get_os() == "mac:":
 		ssh_path = "/Users/{}/.ssh/id_rsa.pub".format(this_user)
 		command = "ssh-copy-id"
 		option = "-i"
 		dest = user + "@" + ip
 		p = subprocess.Popen([command, option, ssh_path, dest])
-		p.communicate()
+		out, err = p.communicate()
 	elif get_os() == "windows":
 		ssh_path = "C:/Users/{}/.ssh/id_rsa.pub".format(this_user)
 		command = "scp"
 		dest = user + "@" + ip + ":/home/" + user + "/.ssh/authorized_keys"
 		p = subprocess.Popen([command, ssh_path, dest])
-		p.communicate()
-
-	to_save = user + " " + ip + " " + dos + "\n"
-	with open("saved_ips.txt", "a+") as f:
-		f.write(to_save)
-		f.close()
-		print("\n\nSuccessfully saved user!")
+		out, err = p.communicate()
+	else:
+		print("Failed to run_passwordless")
+		return sys.exit(6)
+	if out:
+		to_save = user + " " + ip + " " + dos + "\n"
+		with open("saved_ips.txt", "a+") as f:
+			f.write(to_save)
+			f.close()
+			print("\n\nSuccessfully saved user!")
+			print("\n\nYou may close this command prompt now!\n\n")
+			sys.exit(0)
+	else:
+		print("error:\n" + str(err))
+		print("\n\nFailed to save user!\n\n")
+		print("\n\nYou may close this command prompt now!\n\n")
+		sys.exit(7)
 
 
 def main():
@@ -91,7 +102,11 @@ def main():
 	if not just_passwordless:
 		p = subprocess.Popen([command])
 		p.communicate()
-		run_passwordless()
+		ans = input("Add New Destination now? (y/n): ")
+		if ans.lower() == "y":
+			run_passwordless()
+		else:
+			sys.exit(9)
 	else:
 		run_passwordless()
 
