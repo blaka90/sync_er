@@ -786,7 +786,7 @@ class Window(QWidget):
 	def scp_command(self):
 		self.command = "scp"
 		self.scp_button.setStyleSheet('color: green')
-		self.rsync_button.setStyleSheet('color: red')
+		self.rsync_button.setStyleSheet('color: darkred')
 		self.rsync_button.setChecked(False)
 		self.show_info_color("red", "!!! WARNING !!!\t\tScp option only copies the folder to destination\t"
 		                            "to copy only the contents of a folder use Rsync!\t"
