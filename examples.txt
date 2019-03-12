@@ -1,0 +1,55 @@
+
+ssh.connect() takes a keyword argument pkey which you can use to specify your private file.
+
+#get IP and username for remote access
+IP = input("Enter host_server IP: ").split()
+username = input("Enter username: ").split()
+
+
+#create a file on host_server for file
+file_a = open(date+"file.txt", "a") #ignore the date variable
+file = str(date+"file.txt")
+import paramiko
+import os
+privatekeyfile = os.path.expanduser('~/.ssh/id_rsa')
+mykey = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+ssh.connect(IP[0], username = user[0], pkey = mykey)
+
+-----------------------------------------------------------------------------------
+import base64
+import paramiko
+key = paramiko.RSAKey(data=base64.b64decode(b'AAA...'))
+client = paramiko.SSHClient()
+client.get_host_keys().add('ssh.example.com', 'ssh-rsa', key)
+client.connect('ssh.example.com', username='strongbad', password='thecheat')
+stdin, stdout, stderr = client.exec_command('ls')
+for line in stdout:
+    print('... ' + line.strip('\n'))
+client.close()
+
+
+------------------------------------------------------------------------------------
+
+#!/usr/bin/python
+import os
+from getpass import getpass
+
+import paramiko
+
+def deploy_key(key, server, username, password):
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(server, username=username, password=password)
+    client.exec_command('mkdir -p ~/.ssh/')
+    client.exec_command('echo "%s" > ~/.ssh/authorized_keys' % key)
+    client.exec_command('chmod 644 ~/.ssh/authorized_keys')
+    client.exec_command('chmod 700 ~/.ssh/')
+
+key = open(os.path.expanduser('~/.ssh/id_rsa.pub')).read()
+username = os.getlogin()
+password = getpass()
+hosts = ["hostname1", "hostname2", "hostname3"]
+for host in hosts:
+    deploy_key(key, host, username, password)
+
+-------------------------------------------------------------------------------------

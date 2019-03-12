@@ -23,12 +23,12 @@ def get_os():
 
 def get_dos():
 	dos = ""
-	os = input("\nDestination OS\n\n(L)inux\n(M)ac\n(W)indows\n(L/M/W)?: ")
-	if os.lower() == "l":
+	dest_os = input("\nDestination OS\n\n(L)inux\n(M)ac\n(W)indows\n(L/M/W)?: ")
+	if dest_os.lower() == "l":
 		dos = "linux"
-	elif os.lower() == "m":
+	elif dest_os.lower() == "m":
 		dos = "mac"
-	elif os.lower() == "w":
+	elif dest_os.lower() == "w":
 		dos = "windows"
 	else:
 		print("Invalid option try again\noptions:\n(L)inux\n(M)ac\n(W)indows\n")
