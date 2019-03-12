@@ -26,20 +26,12 @@ __version__ = "1.7.4"
 '''
 TO FIX:
 
+just installed linux subsystem on windows try syncing to that?
+	-path to tester from ubuntu /mnt/c/Users/tester/Desktop/
+
 set flag in has_ssh_keygen if pub/priv already exist and just use them but remember they might have passphrase
 	-so flag will tell if to try normal add or passphrase add  (self.try_passphrase)
 		(falling back onto normal add if they don'y have passphrase set)
-
-add_new_user works perfectly right now but try removing the private key from second test and see if still works?
-
-might not actually be a bad idea keeping all priv/pub keys / know_hosts local(ie. program folder)and using this set
-for this program only so not to mess up existing system shit 
-	-look into specifying own known_hosts even from term rsync and scp commands(will it be needed from there?)yes!
-		-look in examples
-
-
-add user much better but needs cleaning up and implemented/tested for every os (linux-linux good!)
-create own ssh keygen using crypto library and save in this program folder(last entry examples.txt)
 
 switch back or atleast try big sync with subprocess again...think QProcess the reason for cutting half way through sync
 
