@@ -6,7 +6,9 @@ from PyQt5.QtTest import QTest
 import subprocess
 import os
 import sys
+from Crypto.PublicKey import RSA
 import pexpect
+from pexpect.popen_spawn import PopenSpawn
 from getpass import getuser, getpass
 import netifaces as ni
 import paramiko
@@ -19,13 +21,34 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.7.3"
+__version__ = "1.7.4"
 
 '''
 TO FIX:
 
+set flag in has_ssh_keygen if pub/priv already exist and just use them but remember they might have passphrase
+	-so flag will tell if to try normal add or passphrase add  (self.try_passphrase)
+		(falling back onto normal add if they don'y have passphrase set)
+
+add_new_user works perfectly right now but try removing the private key from second test and see if still works?
+
+might not actually be a bad idea keeping all priv/pub keys / know_hosts local(ie. program folder)and using this set
+for this program only so not to mess up existing system shit 
+	-look into specifying own known_hosts even from term rsync and scp commands(will it be needed from there?)yes!
+		-look in examples
+
+
+add user much better but needs cleaning up and implemented/tested for every os (linux-linux good!)
+create own ssh keygen using crypto library and save in this program folder(last entry examples.txt)
+
+switch back or atleast try big sync with subprocess again...think QProcess the reason for cutting half way through sync
+
+not syncing locally if dest info is in(no tested)?? or maybe after checking options then unchecking?
+	-remember you did fuck about with the checks in syncer before syncing???
+
 possibly a way to change saved_ips incase ip changes
 	-edit the saved_ips file 
+		-maybe not needed just run add_new_user again under the hood if connection/sync fails
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 	- it does but the . trick isn't/doesn't work anymore?
@@ -467,22 +490,24 @@ class Window(QWidget):
 		else:
 			print("Failed to set ssh path")
 		if os.path.exists(check_path):
-			if os.path.isfile(check_path + "id_rsa.pub"):
+			if os.path.isfile(check_path + "id_rsa"):
+				self.try_passphrase = True
 				return True
 			else:
 				self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
 				                               "to get started!", 15000)
 				return False
 		else:
+			os.mkdir(check_path, 0o700)
 			self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
 			                               "to get started!", 15000)
 			return False
 
 	def run_add_user(self):
-		if self.operating_system == "windows":
-			return self.fail_safe()
+		# if self.operating_system == "windows":
+			# return self.fail_safe()
 		self.get_sync_info()
-		p_com = "ssh-copy-id -i id_rsa.pub " + self.dest_user + "@" + self.dest_ip
+		# p_com = "ssh-copy-id -i id_rsa.pub " + self.dest_user + "@" + self.dest_ip
 		if self.dest_user_input.text() == "":
 			self.show_info_color("red", "Please fill out all Destination Info", 3000)
 			return
@@ -513,30 +538,80 @@ class Window(QWidget):
 		else:
 			self.show_info_color("red", "Adding New User Cancelled!", 5000)
 			return
-
+		# basically rewrite all this to only use what you need you use if doing key pair way
 		if self.operating_system == "linux":
-			ssh_path = "/home/{}/.ssh/id_rsa.pub".format(self.user)
-			command = "ssh-copy-id"
-			option = "-i"
-			dest = self.dest_user + "@" + self.dest_ip
-			p_com = command + " " + option + " " + ssh_path + " " + dest
+			ssh_path = "/home/{}/.ssh/".format(self.user)
 
 		elif self.operating_system == "mac:":
-			ssh_path = "/Users/{}/.ssh/id_rsa.pub".format(self.user)
-			command = "ssh-copy-id"
-			option = "-i"
-			dest = self.dest_user + "@" + self.dest_ip
-			p_com = command + " " + option + " " + ssh_path + " " + dest
+			ssh_path = "/Users/{}/.ssh/".format(self.user)
 
 		#  essentially redundant until figure out windows pexpect way of doing this
 		elif self.operating_system == "windows":
-			ssh_path = "C:/Users/{}/.ssh/id_rsa.pub".format(self.user)
+			ssh_path = "C:/Users/{}/.ssh/".format(self.user)
+			path_pub = "C:/Users/{}/.ssh/id_rsa.pub".format(self.user)
+			path_priv = "C:/Users/{}/.ssh/id_rsa".format(self.user)
 			command = "scp"
 			dest = self.dest_user + "@" + self.dest_ip + ":/home/" + self.dest_user + "/.ssh/authorized_keys"
-			p_com = command + " " + ssh_path + " " + dest
+			p_com = command + " " + path_pub + " " + dest
+			# shell = pexpect.popen_spawn.PopenSpawn(p_com)
+		else:
+			self.show_info_color("darkred", "Failed to gather data", 5000)
+			return
 
+		if self.dest_operating_system == "linux":
+			dest_ssh_path = "/home/{}/.ssh/".format(self.dest_user)
+		elif self.dest_operating_system == "mac:":
+			dest_ssh_path = "/Users/{}/.ssh/".format(self.dest_user)
+		elif self.dest_operating_system == "windows":
+			dest_ssh_path = "C:/Users/{}/.ssh/".format(self.dest_user)
+		else:
+			self.show_info_color("darkred", "Failed to gather data", 5000)
+			return
+
+		path_pub = ssh_path + "id_rsa.pub"
+		path_priv = ssh_path + "id_rsa"
+		known_hosts = ssh_path + "known_hosts"
+		auth_keys = dest_ssh_path + "authorized_keys"
+
+		f = open(known_hosts, "a+")
+		f.close()
+		os.chmod(known_hosts, 0o644)
+
+		key = open(os.path.expanduser(path_pub)).read()
+		shell = paramiko.SSHClient()
+		shell.load_host_keys(known_hosts)
+		shell.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+		pkey = paramiko.RSAKey.from_private_key_file(path_priv)
+		print("got to connect")
+		shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+		print("got past connect")
+		shell.exec_command('mkdir -p {}'.format(ssh_path))
+		shell.exec_command('echo "{0}" >> {1}'.format(key, auth_keys))
+		shell.exec_command('chmod 644 {}'.format(auth_keys))
+		shell.exec_command('chmod 700 {}'.format(ssh_path))
+		# shell.get_host_keys().save("known_hosts")
+		shell.close()
+		self.show_info_color("green", "Successfully Transfered ssh keys!", 4000)
+		print("added")
+		with open("saved_ips.txt", "a+") as f:
+			f.write(to_save)
+			f.close()
+			self.show_info_color("green", "successfully saved User data!", 5000)
+		try:
+			shell = paramiko.SSHClient()
+			shell.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			pkey = paramiko.RSAKey.from_private_key_file(path_priv)
+			shell.connect(self.dest_ip, username=self.dest_user, pkey=pkey)
+			shell.exec_command("mkdir /home/blaka/Desktop/boobs/")
+			shell.close()
+			print("second success")
+		except Exception:
+			print("fail")
+			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
+			self.show_info_color("red", "Failed to save User data!", 5000)
+		"""
 		ndata = ""
-		shell = pexpect.spawn(p_com)
+		# shell = pexpect.spawn(p_com)
 		try:
 			shell.expect('.*ssword.*:')
 			shell.sendline(pex_pass)
@@ -555,13 +630,13 @@ class Window(QWidget):
 					f.close()
 					self.show_info_color("green", "successfully saved User data!", 5000)
 
-		except pexpect.exceptions.EOF as e:
+		except (pexpect.exceptions.EOF, pexpect.exceptions.TIMEOUT) as e:
 			shell.expect(pexpect.exceptions.EOF, timeout=None)
 			shell.close()
 			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
 			self.show_info_color("red", "Failed to save User data!", 5000)
 			self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
-			return self.fail_safe()
+			return self.fail_safe()"""
 
 	def fail_safe(self):
 		self.show_info_color("yellow", "Trying a different method", 5000)
@@ -582,6 +657,41 @@ class Window(QWidget):
 		else:
 			print("Not implemented yet")
 
+	def run_keygen(self):
+		if self.operating_system == "linux":
+			priv_keypath = "/home/{}/.ssh/id_rsa".format(self.user)
+			pub_keypath = "/home/{}/.ssh/id_rsa.pub".format(self.user)
+		elif self.operating_system == "mac:":
+			priv_keypath = "/Users/{}/.ssh/private.pem".format(self.user)
+			pub_keypath = "/Users/{}/.ssh/public.pem".format(self.user)
+		elif self.operating_system == "windows":
+			priv_keypath = "C:/Users/{}/.ssh/private.pem".format(self.user)
+			pub_keypath = "C:/Users/{}/.ssh/public.pem".format(self.user)
+		else:
+			self.show_info_color("darkred", "Failed to set keygen path", 5000)
+			return
+		try:
+			key = RSA.generate(2048)
+			f = open(priv_keypath, "wb")
+			f.write(key.exportKey('PEM'))
+			f.close()
+			os.chmod(priv_keypath, 0o600)
+
+			pubkey = key.publickey()
+			f = open(pub_keypath, "wb")
+			f.write(pubkey.exportKey('OpenSSH'))
+			f.close()
+			os.chmod(pub_keypath, 0o644)
+
+			self.show_info_color("green", "Successfully Created ssh keys!", 4000)
+			self.gen_ssh_keys_button.hide()
+			QTest.qWait(3000)
+			self.show_info_color("yellow", "Press 'Add New Destination' Button to add a new user and "
+			                               "begin Sync_ing with!", 10000)
+		except Exception:
+			self.show_info_color("red", "Failed to Create ssh keys!", 5000)
+
+	'''
 	def run_keygen(self):
 		if self.operating_system == "mac:":
 			command = "ssh-gen"
@@ -628,7 +738,7 @@ class Window(QWidget):
 				shell.close()
 				self.show_info_color("red", "Failed to Create ssh keys!", 5000)
 				self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
-				return
+				return'''
 
 	# if user has added new destination, can get all user info without typing it
 	def get_added_user(self):
@@ -637,6 +747,7 @@ class Window(QWidget):
 			f.seek(0)
 			f.writelines(line for line in lines if line.strip())
 			f.truncate()
+			f.close()
 		try:
 			# check for user in saved_ips list and set in dest_ip_input
 			saved_ips = open("saved_ips.txt", "r")
@@ -718,7 +829,7 @@ class Window(QWidget):
 					continue
 		except FileNotFoundError:
 			self.show_info_color("red", "Destination Username and IP must have been entered at "
-			                                "least once for this Feature to work!", 5000)
+			                            "least once for this Feature to work!", 5000)
 
 	# get which radio button is pressed for destination OS
 	def get_dest_os(self):
