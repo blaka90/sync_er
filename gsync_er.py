@@ -41,6 +41,7 @@ not syncing locally if dest info is in(no tested)?? or maybe after checking opti
 possibly a way to change saved_ips incase ip changes
 	-edit the saved_ips file 
 		-maybe not needed just run add_new_user again under the hood if connection/sync fails
+			-and overwrite if != equal to to_save
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 	- it does but the . trick isn't/doesn't work anymore?
@@ -85,6 +86,7 @@ class Window(QWidget):
 		self.user_and_dest_okay = True
 		self.custom_remote_source_and_dest_okay = True
 		self.custom_local_source_and_dest_okay = True
+		self.finish_er = []
 		# create pool for threads if multiple syncs in one go
 		self.pool = QThreadPool()
 		self.pool.setMaxThreadCount(8)
@@ -575,7 +577,13 @@ class Window(QWidget):
 		shell.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 		pkey = paramiko.RSAKey.from_private_key_file(path_priv)
 		print("got to connect")
-		shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+		try:
+			shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+		except paramiko.ssh_exception.NoValidConnectionsError:
+			#  ######IMPLEMENT ME######## remove dest from known hosts
+			# if dest already in known hosts throws above error(this would have been issue when
+			# editing saved_ips anyways)
+			print("whoops")
 		print("got past connect")
 		shell.exec_command('mkdir -p {}'.format(ssh_path))
 		shell.exec_command('echo "{0}" >> {1}'.format(key, auth_keys))
@@ -1082,7 +1090,7 @@ class Window(QWidget):
 					self.show_info_color("red", "Please input custom paths before syncing", 3000)
 					self.custom_local_source_and_dest_okay = True
 					return
-			elif 8 in self.what_to_sync:
+			if 8 in self.what_to_sync:
 				if not self.custom_remote_source_and_dest_okay:  # make sure custom paths have user input
 					self.show_info_color("red", "Please input custom paths before syncing", 3000)
 					self.custom_remote_source_and_dest_okay = True
@@ -1095,7 +1103,7 @@ class Window(QWidget):
 					self.show_info_color("red", "Please choose Destination Operating System type", 3000)
 					return
 			# if sync is remote make sure all user inputs required are filled
-			elif h in to_check:
+			if h in to_check:
 				if not self.user_and_dest_okay:  # make sure username and ip address have user input
 					self.show_info_color("red", "Please input username or ip address before syncing", 3000)
 					self.user_and_dest_okay = True
@@ -1117,22 +1125,23 @@ class Window(QWidget):
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
 			self.worker.signals.finished.connect(self.print_sync)
+			# signal to show all syncing's are complete
+			self.worker.signals.display_finish.connect(self.sync_complete)
+			self.finish_er.append(h)
 			# start the thread/sync
 			self.pool.start(self.worker)
 		# wait for all syncs to complete
-		self.sync_complete()
+		# self.sync_complete()
 
-	def sync_complete(self):
-		QTest.qWait(100)
-		if self.pool.activeThreadCount() == 0:
+	def sync_complete(self, head):
+		self.finish_er.remove(head)
+		if not self.finish_er:
 			self.update_progress(False)
 			if self.any_errors:
 				self.show_info_color("yellow", "Sync Completed!\tBut...\r Errors have occured!", 8000)
 			else:
 				self.show_info_color("green", "Sync Completed!", 8000)
 			self.any_errors = False
-		else:
-			self.sync_complete()
 
 
 class OpenCmd(QRunnable):
@@ -1157,6 +1166,7 @@ class WorkerSignals(QObject):
 	finished = pyqtSignal(int, str, str)
 	# used to let show_user_info if any errors occured for coloring and feedback
 	sync_errors = pyqtSignal(bool)
+	display_finish = pyqtSignal(int)
 
 
 # object for running the sync commands
@@ -1186,6 +1196,63 @@ class SyncThatShit(QRunnable):
 		self.signals = WorkerSignals()
 		self.sync_sort()
 
+	def run(self):
+		try:  # used for remote options
+			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
+
+			# obsolete from cli version(will be updated to usuable option tho)
+			# ipad = self.destination + "@" + self.destination_ip + ":" + self.dest_path
+
+			# command for local syncs
+			if self.header == 7:
+				p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
+				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+			# obsolete from cli verion(will be updated to usuable option tho)
+			elif self.header == 14:
+				# p = subprocess.Popen(["scp", ipad, self.source_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				pass
+
+			# command for remote syncs
+			else:
+				if self.command == "rsync":
+					if self.delete:
+						p = subprocess.Popen(
+							[self.command, self.options, self.source_path, self.destination, "--delete"],
+							stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					else:
+						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+				else:
+					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
+					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					# self.scp_copy()
+
+			"""
+			if self.command == "scp":
+				# self.output = self.output.decode()
+				# self.errors = self.errors.decode()
+				self.get_scp_output()
+			else:"""
+			# get command output and errors for use to display in ui
+			self.output, self.errors = p.communicate()
+			self.output = self.output.decode()
+			self.errors = self.errors.decode()
+			# get scp output and then clean up scp output
+			if self.command == "scp":
+				self.get_scp_output()
+			# signal connected to print_sync, displaying the outputs of syncs
+			if self.errors != "":
+				self.signals.sync_errors.emit(True)
+			self.signals.finished.emit(self.header, self.output, self.errors)
+			self.signals.display_finish.emit(self.header)
+		# display stderr
+		except Exception as e:
+			err = "Ooops something went wrong there..." + "\n" + str(e)
+			self.signals.finished.emit(self.header, self.output, err)
+
+	'''
 	# automatically gets run as thread
 	def run(self):
 		self.proc = QProcess()
@@ -1235,7 +1302,7 @@ class SyncThatShit(QRunnable):
 		# display stderr
 		except Exception as e:
 			err = "Ooops something went wrong there..." + "\n" + str(e)
-			self.signals.finished.emit(self.header, self.output, err)
+			self.signals.finished.emit(self.header, self.output, err)'''
 
 	def scp_copy(self):
 		hostname = self.dest_ip
