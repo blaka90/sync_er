@@ -7,9 +7,7 @@ import subprocess
 import os
 import sys
 from Crypto.PublicKey import RSA
-import pexpect
-from pexpect.popen_spawn import PopenSpawn
-from getpass import getuser, getpass
+from getpass import getuser
 import netifaces as ni
 import paramiko
 from scp import SCPClient
@@ -21,25 +19,13 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "1.7.4"
+__version__ = "1.7.5"
 
 '''
 TO FIX:
 
-just installed linux subsystem on windows try syncing to that?
-	-path to tester from ubuntu /mnt/c/Users/tester/Desktop/
-
-set flag in has_ssh_keygen if pub/priv already exist and just use them but remember they might have passphrase
-	-so flag will tell if to try normal add or passphrase add  (self.try_passphrase)
-		(falling back onto normal add if they don'y have passphrase set)
-
-not syncing locally if dest info is in(no tested)?? or maybe after checking options then unchecking?
-	-remember you did fuck about with the checks in syncer before syncing???
-
-possibly a way to change saved_ips incase ip changes
-	-edit the saved_ips file 
-		-maybe not needed just run add_new_user again under the hood if connection/sync fails
-			-and overwrite if != equal to to_save
+adjust scp_copy to work with paramiko add new user
+	-sticking with subprocess version for now
 
 test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
 	- it does but the . trick isn't/doesn't work anymore?
@@ -50,6 +36,9 @@ can't uncheck dest_os_* in clear settings (tried don't know how????)
 JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
 		-need to test ssh_install.py windows
+		
+	just installed linux subsystem on windows try syncing to that?
+	-path to tester from ubuntu /mnt/c/Users/tester/Desktop/
 
 
 TO ADD:
@@ -86,6 +75,8 @@ class Window(QWidget):
 		self.user_and_dest_okay = True
 		self.custom_remote_source_and_dest_okay = True
 		self.custom_local_source_and_dest_okay = True
+		self.try_passphrase = False
+		self.append = False
 		self.finish_er = []
 		# create pool for threads if multiple syncs in one go
 		self.pool = QThreadPool()
@@ -474,25 +465,27 @@ class Window(QWidget):
 
 	# checks if user has generated ssh keygen before and shows button to generate if not
 	def has_ssh_keygen(self):
-		check_path = ""
 		if self.operating_system == "linux":
-			check_path = "/home/{}/.ssh/".format(self.user)
+			self.ssh_path = "/home/{}/.ssh/".format(self.user)
 		elif self.operating_system == "mac:":
-			check_path = "/Users/{}/.ssh/".format(self.user)
+			self.ssh_path = "/Users/{}/.ssh/".format(self.user)
 		elif self.operating_system == "windows":
-			check_path = "C:/Users/{}/.ssh/".format(self.user)
+			self.ssh_path = "C:/Users/{}/.ssh/".format(self.user)
 		else:
 			print("Failed to set ssh path")
-		if os.path.exists(check_path):
-			if os.path.isfile(check_path + "id_rsa"):
-				self.try_passphrase = True
+		if os.path.exists(self.ssh_path):
+			if os.path.isfile(self.ssh_path + "id_rsa"):
+				if os.path.isfile("resources/syncer_keygen.txt"):
+					self.try_passphrase = False
+				else:
+					self.try_passphrase = True
 				return True
 			else:
 				self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
 				                               "to get started!", 15000)
 				return False
 		else:
-			os.mkdir(check_path, 0o700)
+			os.mkdir(self.ssh_path, 0o700)
 			self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
 			                               "to get started!", 15000)
 			return False
@@ -501,7 +494,6 @@ class Window(QWidget):
 		# if self.operating_system == "windows":
 			# return self.fail_safe()
 		self.get_sync_info()
-		# p_com = "ssh-copy-id -i id_rsa.pub " + self.dest_user + "@" + self.dest_ip
 		if self.dest_user_input.text() == "":
 			self.show_info_color("red", "Please fill out all Destination Info", 3000)
 			return
@@ -513,17 +505,8 @@ class Window(QWidget):
 			return
 
 		self.show_info_color("yellow", "Trying to save User data", 10000)
-		to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
-		try:
-			saved_ips = open("resources/saved_ips.txt", "r")
-			for line in saved_ips.readlines():
-				if line == to_save:
-					saved_ips.close()
-					self.show_info_color("darkred", "User already saved!", 4000)
-					return
 
-		except FileNotFoundError:
-			self.show_info_color("darkred", "Failed to load user data", 5000)
+		to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
 
 		ask_pass, ok_pressed = QInputDialog.getText(self, "Adding New User", "Destination Password: ",
 		                                            QLineEdit.Password, "")
@@ -531,25 +514,6 @@ class Window(QWidget):
 			pex_pass = ask_pass
 		else:
 			self.show_info_color("red", "Adding New User Cancelled!", 5000)
-			return
-		# basically rewrite all this to only use what you need you use if doing key pair way
-		if self.operating_system == "linux":
-			ssh_path = "/home/{}/.ssh/".format(self.user)
-
-		elif self.operating_system == "mac:":
-			ssh_path = "/Users/{}/.ssh/".format(self.user)
-
-		#  essentially redundant until figure out windows pexpect way of doing this
-		elif self.operating_system == "windows":
-			ssh_path = "C:/Users/{}/.ssh/".format(self.user)
-			path_pub = "C:/Users/{}/.ssh/id_rsa.pub".format(self.user)
-			path_priv = "C:/Users/{}/.ssh/id_rsa".format(self.user)
-			command = "scp"
-			dest = self.dest_user + "@" + self.dest_ip + ":/home/" + self.dest_user + "/.ssh/authorized_keys"
-			p_com = command + " " + path_pub + " " + dest
-			# shell = pexpect.popen_spawn.PopenSpawn(p_com)
-		else:
-			self.show_info_color("darkred", "Failed to gather data", 5000)
 			return
 
 		if self.dest_operating_system == "linux":
@@ -562,98 +526,107 @@ class Window(QWidget):
 			self.show_info_color("darkred", "Failed to gather data", 5000)
 			return
 
-		path_pub = ssh_path + "id_rsa.pub"
-		path_priv = ssh_path + "id_rsa"
-		known_hosts = ssh_path + "known_hosts"
+		path_pub = self.ssh_path + "id_rsa.pub"
+		path_priv = self.ssh_path + "id_rsa"
+		known_hosts = self.ssh_path + "known_hosts"
 		auth_keys = dest_ssh_path + "authorized_keys"
 
-		f = open(known_hosts, "a+")
-		f.close()
-		os.chmod(known_hosts, 0o644)
+		if not os.path.isfile(known_hosts):
+			f = open(known_hosts, "a+")
+			f.close()
+			os.chmod(known_hosts, 0o644)
+		else:
+			self.r_known_hosts(known_hosts)
 
 		key = open(os.path.expanduser(path_pub)).read()
 		shell = paramiko.SSHClient()
 		shell.load_host_keys(known_hosts)
 		shell.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 		pkey = paramiko.RSAKey.from_private_key_file(path_priv)
-		print("got to connect")
 		try:
-			shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
-		except paramiko.ssh_exception.NoValidConnectionsError:
-			#  ######IMPLEMENT ME######## remove dest from known hosts
-			# if dest already in known hosts throws above error(this would have been issue when
-			# editing saved_ips anyways)
-			print("whoops")
-		print("got past connect")
-		shell.exec_command('mkdir -p {}'.format(ssh_path))
-		shell.exec_command('echo "{0}" >> {1}'.format(key, auth_keys))
-		shell.exec_command('chmod 644 {}'.format(auth_keys))
-		shell.exec_command('chmod 700 {}'.format(ssh_path))
-		# shell.get_host_keys().save("known_hosts")
-		shell.close()
-		self.show_info_color("green", "Successfully Transfered ssh keys!", 4000)
-		print("added")
-		with open("resources/saved_ips.txt", "a+") as f:
-			f.write(to_save)
+			if self.try_passphrase:
+				have_passphrase = QMessageBox.question(self, 'SSH Keys Passphrase', "Have you got a Passphrase on the "
+				                                                                    "SSH Public/Private Keys?",
+				                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+				if have_passphrase == QMessageBox.Yes:
+					passphrase, ok_pressed = QInputDialog.getText(self, "SSH Keys Passphrase", "Enter Passphrase: ",
+					                                              QLineEdit.Password, "")
+					if ok_pressed and passphrase != '':
+						shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass,
+						              pkey=pkey, passphrase=passphrase)
+				else:
+					shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+
+			else:
+				shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+			shell.exec_command('mkdir -p {}'.format(self.ssh_path))
+			shell.exec_command('echo "{0}" >> {1}'.format(key, auth_keys))
+			shell.exec_command('chmod 644 {}'.format(auth_keys))
+			shell.exec_command('chmod 700 {}'.format(self.ssh_path))
+			# shell.get_host_keys().save("known_hosts")
+			shell.close()
+			self.show_info_color("green", "Successfully Transfered ssh keys!", 4000)
+		except paramiko.ssh_exception.NoValidConnectionsError as e:
+			print(str(e))
+			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
+
+		if self.append:
+			with open("resources/saved_ips.txt", "a+") as f:
+				f.write(to_save)
+				f.close()
+				self.show_info_color("green", "successfully saved User data!", 5000)
+		else:
+			with open("resources/saved_ips.txt", "r") as f:
+				fr = f.readlines()
+				f.close()
+			with open("resources/saved_ips.txt", "w") as f:
+				for line in fr:
+					if line.startswith(self.dest_user):
+						if line != to_save:
+							f.write(to_save)
+						else:
+							f.write(line)
+					else:
+						f.write(line)
+				f.close()
+				self.show_info_color("green", "Updated saved user data!", 5000)
+
+	def r_known_hosts(self, kh):
+		ip = ""
+		with open("resources/saved_ips.txt", "r") as f:
+			fr = f.readlines()
 			f.close()
-			self.show_info_color("green", "successfully saved User data!", 5000)
-		try:
-			shell = paramiko.SSHClient()
-			shell.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-			pkey = paramiko.RSAKey.from_private_key_file(path_priv)
-			shell.connect(self.dest_ip, username=self.dest_user, pkey=pkey)
-			shell.exec_command("mkdir /home/blaka/Desktop/boobs/")
-			shell.close()
-			print("second success")
-		except Exception:
-			print("fail")
-			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
-			self.show_info_color("red", "Failed to save User data!", 5000)
-		"""
-		ndata = ""
-		# shell = pexpect.spawn(p_com)
-		try:
-			shell.expect('.*ssword.*:')
-			shell.sendline(pex_pass)
-			shell.expect(pexpect.exceptions.EOF, timeout=None)
-			cmd_show_data = shell.before
-			cmd_output = cmd_show_data.split(b'\r\n')
-			shell.close()
-			for data in cmd_output:
-				ndata += data.decode()
+			for line in fr:
+				if line.startswith(self.dest_user):
+					ip = line.split()
+		if ip != "":
+			with open(kh, "r") as f:
+				kh_file = f.readlines()
+				f.close()
+			with open(kh, "w") as f:
+				for line in kh_file:
+					if line.startswith(ip[1]):
+						continue
+					else:
+						f.write(line)
+				f.close()
+				self.append = False
+				return self.append
+		else:
+			self.append = True
+			return self.append
 
-			if "Number of key(s) added: 1" in ndata:
-				self.show_info_color("green", "Successfully Transfered ssh keys!", 4000)
-				self.output_display.setText(ndata)  # ----------------------REMOVE THIS WHEN WORKING OKAY!
-				with open("saved_ips.txt", "a+") as f:
-					f.write(to_save)
-					f.close()
-					self.show_info_color("green", "successfully saved User data!", 5000)
-
-		except (pexpect.exceptions.EOF, pexpect.exceptions.TIMEOUT) as e:
-			shell.expect(pexpect.exceptions.EOF, timeout=None)
-			shell.close()
-			self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
-			self.show_info_color("red", "Failed to save User data!", 5000)
-			self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
-			return self.fail_safe()"""
-
+	# no calls to this(keeping for testing until evrything is bulletproof!!)
 	def fail_safe(self):
 		self.show_info_color("yellow", "Trying a different method", 5000)
 		if self.operating_system == "linux":
 			op_cmd = OpenCmd(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
 			return op_cmd
-			# p = subprocess.Popen(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
-			# out, err = p.communicate()
-			# self.output_display.setText(out + err)
 		elif self.operating_system == "windows":
 			self.show_info_color("gray", "A command prompt should have opened...follow the instructions", 10000)
 			QTest.qWait(1000)
 			op_cmd = OpenCmd(["cmd.exe", "start", "cmd.exe", "/k", "python ssh_install.py"])
 			return op_cmd
-			# p = subprocess.Popen(["cmd.exe", "/k", "python ssh_install.py"])
-			# out, err = self.p.communicate()
-			# self.output_display.setText(out + err)
 		else:
 			print("Not implemented yet")
 
@@ -662,11 +635,11 @@ class Window(QWidget):
 			priv_keypath = "/home/{}/.ssh/id_rsa".format(self.user)
 			pub_keypath = "/home/{}/.ssh/id_rsa.pub".format(self.user)
 		elif self.operating_system == "mac:":
-			priv_keypath = "/Users/{}/.ssh/private.pem".format(self.user)
-			pub_keypath = "/Users/{}/.ssh/public.pem".format(self.user)
+			priv_keypath = "/Users/{}/.ssh/id_rsa".format(self.user)
+			pub_keypath = "/Users/{}/.ssh/id_rsa.pub".format(self.user)
 		elif self.operating_system == "windows":
-			priv_keypath = "C:/Users/{}/.ssh/private.pem".format(self.user)
-			pub_keypath = "C:/Users/{}/.ssh/public.pem".format(self.user)
+			priv_keypath = "C:/Users/{}/.ssh/id_rsa".format(self.user)
+			pub_keypath = "C:/Users/{}/.ssh/id_rsa.pub".format(self.user)
 		else:
 			self.show_info_color("darkred", "Failed to set keygen path", 5000)
 			return
@@ -688,57 +661,11 @@ class Window(QWidget):
 			QTest.qWait(3000)
 			self.show_info_color("yellow", "Press 'Add New Destination' Button to add a new user and "
 			                               "begin Sync_ing with!", 10000)
-		except Exception:
+			syncer_keygen = open("resources/syncer_keygen.txt", "a+")
+			syncer_keygen.write("True")
+			syncer_keygen.close()
+		except RSA.error:
 			self.show_info_color("red", "Failed to Create ssh keys!", 5000)
-
-	'''
-	def run_keygen(self):
-		if self.operating_system == "mac:":
-			command = "ssh-gen"
-		else:
-			command = "ssh-keygen"
-
-		text, okpressed = QInputDialog.getText(self, "Generating SSH key pair", "Key Pair Password(Blank for None):",
-		                                       QLineEdit.Password, "")
-		if okpressed:
-			kp_pass = text
-		else:
-			self.show_info_color("red", "Generate SSH Key Pair Cancelled!", 5000)
-			return
-
-		if self.operating_system == "windows":
-			self.fail_safe()
-		else:
-			ndata = ""
-			shell = pexpect.spawn(command)
-			try:
-				shell.expect('.*file.*:')
-				shell.sendline('\r\n')
-				shell.expect('.*passphrase.*:')
-				shell.sendline(kp_pass)
-				shell.expect('.*passphrase.*:')
-				shell.sendline(kp_pass)
-				shell.expect(pexpect.exceptions.EOF, timeout=None)
-				cmd_show_data = shell.before
-				cmd_output = cmd_show_data.split(b'\r\n')
-				shell.close()
-				for data in cmd_output:
-					ndata += data.decode()
-
-				if "randomart image" in ndata:
-					self.show_info_color("green", "Successfully Created ssh keys!", 4000)
-					self.output_display.setText(ndata)  # ----------------------REMOVE THIS WHEN WORKING OKAY!
-					self.gen_ssh_keys_button.hide()
-					QTest.qWait(3000)
-					self.show_info_color("yellow", "Press 'Add New Destination' Button to add a new user and "
-					                               "begin Sync_ing with!", 10000)
-
-			except pexpect.exceptions.EOF as e:
-				shell.expect(pexpect.exceptions.EOF, timeout=None)
-				shell.close()
-				self.show_info_color("red", "Failed to Create ssh keys!", 5000)
-				self.output_display.setText("errors:\n{}".format(e))  # --------REMOVE THIS WHEN WORKING OKAY!
-				return'''
 
 	# if user has added new destination, can get all user info without typing it
 	def get_added_user(self):
@@ -899,9 +826,9 @@ class Window(QWidget):
 		self.scp_button.setStyleSheet('color: green')
 		self.rsync_button.setStyleSheet('color: darkred')
 		self.rsync_button.setChecked(False)
-		self.show_info_color("red", "!!! WARNING !!!\t\tScp option only copies the folder to destination\t"
-		                            "to copy only the contents of a folder use Rsync!\t"
-		                            "*Applies to all options", 10000)
+		self.show_info_color("yellow", "!!! WARNING !!!\t\tScp option only copies the folder to destination\t"
+		                               "to copy only the contents of a folder use Rsync!\t"
+		                               "*Applies to all options", 10000)
 
 	# disables input for custom option/flag if unchecked...vice versa
 	def check_option(self, enabled):
@@ -1120,7 +1047,7 @@ class Window(QWidget):
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
 			                           self.custom_local_dest_path, self.custom_local_source_path,
 			                           self.custom_remote_dest_path, self.custom_remote_source_path,
-			                           self.operating_system, self.dest_operating_system)
+			                           self.operating_system, self.dest_operating_system, self.ssh_path)
 			# signal to let show_user_info know if any errors occured changing color and user feedback
 			self.worker.signals.sync_errors.connect(self.was_there_errors)
 			# signal for when thread is complete, output ready for display
@@ -1130,9 +1057,8 @@ class Window(QWidget):
 			self.finish_er.append(h)
 			# start the thread/sync
 			self.pool.start(self.worker)
-		# wait for all syncs to complete
-		# self.sync_complete()
 
+	# wait for all syncs to complete
 	def sync_complete(self, head):
 		self.finish_er.remove(head)
 		if not self.finish_er:
@@ -1149,14 +1075,12 @@ class OpenCmd(QRunnable):
 	def __init__(self, command):
 		QRunnable.__init__(self)
 		self.command = command
-		print(command)
 		self.run()
 
 	def run(self):
 		abspath = os.path.abspath(__file__)
 		dir_name = os.path.dirname(abspath)
 		os.chdir(dir_name)
-		print("i 'run'")
 		p = subprocess.Popen(self.command)
 		p.communicate()
 
@@ -1173,7 +1097,7 @@ class WorkerSignals(QObject):
 class SyncThatShit(QRunnable):
 	# all user input passed to it from main window ui
 	def __init__(self, header, command, options, user, dest_user, dest_ip, custom_local_dest_path,
-	             custom_local_source_path, custom_remote_dest_path, custom_remote_source_path, user_os, dest_os):
+	             custom_local_source_path, custom_remote_dest_path, custom_remote_source_path, user_os, dest_os, ssh_path):
 		QRunnable.__init__(self)
 		self.header = header
 		self.command = command
@@ -1188,6 +1112,7 @@ class SyncThatShit(QRunnable):
 		self.custom_remote_source_path = custom_remote_source_path
 		self.user_os = user_os
 		self.dest_os = dest_os
+		self.ssh_path = ssh_path
 		self.source_path = ""
 		self.dest_path = ""
 		self.destination = ""
@@ -1197,51 +1122,71 @@ class SyncThatShit(QRunnable):
 		self.sync_sort()
 
 	def run(self):
+		# self.proc = QProcess()
+		# self.proc_command = ""
 		try:  # used for remote options
 			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
 
-			# obsolete from cli version(will be updated to usuable option tho)
-			# ipad = self.destination + "@" + self.destination_ip + ":" + self.dest_path
-
 			# command for local syncs
 			if self.header == 7:
-				p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
-				                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-			# obsolete from cli verion(will be updated to usuable option tho)
-			elif self.header == 14:
-				# p = subprocess.Popen(["scp", ipad, self.source_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				pass
+				if self.command == 'scp':
+					self.options = '-r'
+					if os.path.isfile(self.source_path):
+						# self.proc_command = self.command + " " + self.source_path + " " + self.dest_path
+						p = subprocess.Popen([self.command, self.source_path, self.dest_path],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					else:
+						# self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
+						p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				else:
+					# self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
+					p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
+					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 			# command for remote syncs
 			else:
 				if self.command == "rsync":
 					if self.delete:
+						# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+						# 						                    " " + self.destination + " --delete"
 						p = subprocess.Popen(
 							[self.command, self.options, self.source_path, self.destination, "--delete"],
 							stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 					else:
+						# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+						# 						                    " " + self.destination
 						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 				else:
-					p = subprocess.Popen([self.command, "-rv", self.source_path, self.destination],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					self.options = '-rv'
+					# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+					# 						                    " " + self.destination
 					# self.scp_copy()
+					p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
+					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-			"""
-			if self.command == "scp":
-				# self.output = self.output.decode()
-				# self.errors = self.errors.decode()
-				self.get_scp_output()
-			else:"""
+			# # run the process wait for it to finish and store the output
+			# self.proc.start(self.proc_command)
+			# self.proc.waitForFinished()
+			# # self.proc.finished.emit()
+			# self.output = self.proc.readAllStandardOutput()
+			# self.errors = self.proc.readAllStandardError()
+			# self.proc.close()
+			# # get command output and errors for use to display in ui
+			# self.output = str(self.output, "utf-8")
+			# self.errors = str(self.errors, "utf-8")
+
 			# get command output and errors for use to display in ui
 			self.output, self.errors = p.communicate()
 			self.output = self.output.decode()
 			self.errors = self.errors.decode()
+
 			# get scp output and then clean up scp output
 			if self.command == "scp":
 				self.get_scp_output()
+
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
 				self.signals.sync_errors.emit(True)
@@ -1251,66 +1196,15 @@ class SyncThatShit(QRunnable):
 		except Exception as e:
 			err = "Ooops something went wrong there..." + "\n" + str(e)
 			self.signals.finished.emit(self.header, self.output, err)
-
-	'''
-	# automatically gets run as thread
-	def run(self):
-		self.proc = QProcess()
-		self.proc_command = ""
-		try:  # used for remote options
-			self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
-
-			# command for local syncs
-			if self.header == 7:
-				self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
-
-			# command for remote syncs
-			else:
-				if self.command == "rsync":
-					if self.delete:
-						self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-						                    " " + self.destination + " --delete"
-					else:
-						self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-						                    " " + self.destination
-
-				else:
-					self.proc_command = self.command + " -rv " + self.source_path + " " + self.destination
-					# self.scp_copy()
-
-			# run the process wait for it to finish and store the output
-			self.proc.start(self.proc_command)
-			self.proc.waitForFinished()
-			# self.proc.finished.emit()
-			self.output = self.proc.readAllStandardOutput()
-			self.errors = self.proc.readAllStandardError()
-			self.proc.close()
-
-			# get command output and errors for use to display in ui
-			self.output = str(self.output, "utf-8")
-			self.errors = str(self.errors, "utf-8")
-
-			# get scp output and then clean up scp output
-			if self.command == "scp":
-				self.get_scp_output()
-
-			# signal connected to print_sync, displaying the outputs of syncs
-			if self.errors != "":
-				self.signals.sync_errors.emit(True)
-			self.signals.finished.emit(self.header, self.output, self.errors)
-
-		# display stderr
-		except Exception as e:
-			err = "Ooops something went wrong there..." + "\n" + str(e)
-			self.signals.finished.emit(self.header, self.output, err)'''
+			self.signals.display_finish.emit(self.header)
 
 	def scp_copy(self):
-		hostname = self.dest_ip
-		port = 22
 		try:
 			client = paramiko.SSHClient()
-			client.load_system_host_keys()
-			client.connect(hostname=hostname, port=port, username=self.dest_user)
+			client.load_system_host_keys(self.ssh_path + 'known_hosts')
+			client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			pkey = paramiko.RSAKey.from_private_key_file(self.ssh_path + 'id_rsa')
+			client.connect(hostname=self.dest_ip, username=self.dest_user, pkey=pkey)
 			with SCPClient(client.get_transport()) as scp:
 				if os.path.isfile(self.source_path):
 					self.output, self.errors = scp.put(self.source_path, self.dest_path)
@@ -1321,27 +1215,11 @@ class SyncThatShit(QRunnable):
 			client.close()
 		except Exception as e:
 			print(e)
-			password = getpass()
-			client = paramiko.SSHClient()
-			client.load_system_host_keys()
-			client.connect(hostname=hostname, port=port, username=self.dest_user, passphrase=password)
-			with SCPClient(client.get_transport()) as scp:
-				if os.path.isfile(self.source_path):
-					scp.put(self.source_path, self.dest_path)
-				else:
-					scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
-			# scp.get(self.dest_path, self.source_path)
-			scp.close()
-			client.close()
 
 	# sets the paths of the sync depending on what sync option/header is used
 	def sync_sort(self):
 		sp = ""
 		dp = ""
-		# force scp if windows is involved
-		if self.dest_os == "windows":
-			if self.user_os != "windows":
-				self.command = "scp"
 		# set the option/flag
 		if self.options == "d":  # default
 			self.options = "-Paiurv"
@@ -1350,6 +1228,11 @@ class SyncThatShit(QRunnable):
 		elif self.options == "del":  # delete destination dir before copying
 			self.options = "-Paiurv"
 			self.delete = True
+
+		# force scp if windows is involved
+		if self.dest_os == "windows":
+			if self.user_os != "windows":
+				self.command = "scp"
 
 		if self.user_os == "linux":
 			sp = "/home/" + self.user
