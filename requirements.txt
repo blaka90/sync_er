@@ -1,5 +1,5 @@
+python-nmap
 Crypto
-pexpect
 scp
 paramiko
 netifaces
