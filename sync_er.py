@@ -10,8 +10,9 @@ from Crypto.PublicKey import RSA
 from getpass import getuser
 import netifaces as ni
 import paramiko
-from scp import SCPClient
+from scp import SCPClient, SCPException
 from functools import partial
+import nmap as nm
 
 '''
 ###################################################################################################################
@@ -19,10 +20,12 @@ from functools import partial
 ###################################################################################################################
 '''
 __author__ = "blaka90"
-__version__ = "0.7.5"
+__version__ = "0.7.6"
 
 '''
 TO FIX:
+
+NetDiscovery is currently broken...don't know why been coding all day(am tired)
 
 adjust scp_copy to work with paramiko add new user
 	-sticking with subprocess version for now
@@ -43,8 +46,6 @@ JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
 
 TO ADD:
 
-add a cancel sync button(kill the thread)
-
 add instructions and how to's in README aswel as dependencies and windows install and shit
 	
 '''
@@ -54,6 +55,8 @@ add instructions and how to's in README aswel as dependencies and windows instal
 class Window(QWidget):
 	def __init__(self):
 		super(Window, self).__init__()
+		self.nd = NetDiscovery()
+		self.nd.signals.network_list.connect(self.get_network_list)
 		self.user_ip = ""
 		self.get_local_ip()
 		self.path()
@@ -78,6 +81,7 @@ class Window(QWidget):
 		self.try_passphrase = False
 		self.append = False
 		self.finish_er = []
+		self.available_hosts = None
 		# create pool for threads if multiple syncs in one go
 		self.pool = QThreadPool()
 		self.pool.setMaxThreadCount(8)
@@ -149,8 +153,9 @@ class Window(QWidget):
 		# set the name, icon and size of main window
 		self.setWindowTitle("Sync_er")
 		self.setWindowIcon(QIcon("resources/syncer.png"))
-		self.setGeometry(150, 100, 1400, 800)
-		self.setFixedSize(1400, 800)
+		self.setGeometry(150, 100, 1450, 800)
+		self.setFixedSize(1450, 800)
+		# self.setStyleSheet("background-color: black")
 
 		"""right side of gui"""
 		# not used as a textedit, but used to display output from syncs
@@ -159,6 +164,8 @@ class Window(QWidget):
 		self.output_display.setFixedHeight(750)
 		self.output_display.setCursorWidth(0)
 		self.output_display.setText(self.welcome_banner())
+		if "blaka" in self.user:
+			self.output_display.setStyleSheet("background-image: url(resources/output_display.jpeg); color: lightblue")
 
 		# loadingbar gif for syncs
 		self.loading_bar = QLabel(self)
@@ -184,15 +191,21 @@ class Window(QWidget):
 		# button for changing command to rsync (default)
 		self.rsync_button = QPushButton("Rsync")
 		self.rsync_button.setCheckable(True)
-		self.rsync_button.setStyleSheet('color: green')
+		self.rsync_button.setStyleSheet('background-color: blue; color: green')
 		self.rsync_button.setFixedWidth(100)
 		self.rsync_button.clicked.connect(self.rsync_command)
 		# button for changing command to scp
 		self.scp_button = QPushButton("Scp")
 		self.scp_button.setCheckable(True)
-		self.scp_button.setStyleSheet('color: darkred')
+		self.scp_button.setStyleSheet('background-color: blue; color: darkred')
 		self.scp_button.setFixedWidth(100)
 		self.scp_button.clicked.connect(self.scp_command)
+
+		# hides the output window
+		self.hide_op = QCheckBox("Hide Display", self)
+		self.hide_op.stateChanged.connect(self.hide_output)
+		self.hide_op.setFixedWidth(120)
+		self.hide_op.setStyleSheet("color: black")
 
 		# label for section Destination options
 		self.system_label_dest = QLabel(self)
@@ -212,7 +225,8 @@ class Window(QWidget):
 		# experimental lazy way of getting saved ip's
 		self.find_dest_info_button = QPushButton("Find")
 		self.find_dest_info_button.setFixedWidth(60)
-		self.find_dest_info_button.clicked.connect(self.get_saved_ip)
+		self.find_dest_info_button.clicked.connect(self.find_ips)
+		# self.find_dest_info_button.setStyleSheet("background-color: blue; color: black")
 
 		# label for destination ip address
 		self.dest_ip_label = QLabel(self)
@@ -228,6 +242,7 @@ class Window(QWidget):
 		self.get_added_button = QPushButton("choose")
 		self.get_added_button.setFixedWidth(60)
 		self.get_added_button.clicked.connect(self.get_added_user)
+		# self.get_added_button.setStyleSheet("background-color: blue; color: black")
 
 		# get the os type of destination and later try change path accordingly
 		self.dest_os_label = QLabel(self)
@@ -247,9 +262,11 @@ class Window(QWidget):
 		# only shows if ssh is not already setup from this system
 		self.gen_ssh_keys_button = QPushButton("Generate SSH Keygen")
 		self.gen_ssh_keys_button.clicked.connect(self.run_keygen)
+		# self.gen_ssh_keys_button.setStyleSheet("background-color: blue; color: black")
 
 		self.add_user = QPushButton("Add New Destination")
 		self.add_user.clicked.connect(self.run_add_user)
+		# self.add_user.setStyleSheet("background-color: darkblue; color: black")
 
 		# label for section flags used for syncs
 		self.system_label_flag_options = QLabel(self)
@@ -342,12 +359,21 @@ class Window(QWidget):
 		# sync button, starts the process of syncing all user input
 		self.sync_button = QPushButton("Sync", self)
 		self.sync_button.clicked.connect(self.syncer)
+		self.sync_button.setFixedWidth(250)
+		self.sync_button.setFixedHeight(50)
+		self.sync_button.setStyleSheet("font-size: 20px; color: black")
 		# button to clear all user input
 		self.clear_settings_button = QPushButton("Clear Settings", self)
 		self.clear_settings_button.clicked.connect(self.clear_settings)
+		self.clear_settings_button.setFixedWidth(150)
+		self.clear_settings_button.setFixedHeight(25)
+		# self.clear_settings_button.setStyleSheet("background-color: blue; color: black")
 		# button to clear the display  only
 		self.clear_display_button = QPushButton("Clear Display", self)
 		self.clear_display_button.clicked.connect(self.clear_display)
+		self.clear_display_button.setFixedWidth(150)
+		self.clear_display_button.setFixedHeight(25)
+		# self.clear_display_button.setStyleSheet("background-color: blue; color: black")
 
 		# should have used QMainWindow but am here now -_-
 		self.statusbar = QStatusBar(self)
@@ -355,17 +381,29 @@ class Window(QWidget):
 		"""start of layouts"""
 
 		# layout for left top row
-		top_row = QHBoxLayout()
-		top_row.addWidget(self.user_label)
-		top_row.addWidget(self.rsync_button)
-		top_row.addWidget(self.scp_button)
+		top_row1 = QHBoxLayout()
+		top_row1.addWidget(self.user_label)
+		top_row1.addWidget(self.rsync_button)
+		top_row1.addWidget(self.scp_button)
+
+		top_row2 = QHBoxLayout()
+		top_row2.addWidget(self.user_ip_label)
+		# top_row2.setAlignment(Qt.AlignRight)
+		top_row2.addWidget(self.hide_op)
+
+		# ride side of bottom buttons
+		clear_buttons = QVBoxLayout()
+		clear_buttons.addWidget(self.clear_display_button)
+		clear_buttons.addWidget(self.clear_settings_button)
+		clear_buttons.setAlignment(Qt.AlignRight)
 
 		# horizontal layout for buttons at bottom of ui
 		h_box_buttons = QHBoxLayout()
-		h_box_buttons.setContentsMargins(20, 40, 20, 20)
+		h_box_buttons.setContentsMargins(100, 20, 20, 20)
 		h_box_buttons.addWidget(self.sync_button)
-		h_box_buttons.addWidget(self.clear_settings_button)
-		h_box_buttons.addWidget(self.clear_display_button)
+		h_box_buttons.addLayout(clear_buttons)
+		# h_box_buttons.addWidget(self.clear_settings_button)
+		# h_box_buttons.addWidget(self.clear_display_button)
 
 		# horizontal layout for os radio buttons inside destination_grid layout
 		h_box_os_buttons = QHBoxLayout()
@@ -420,8 +458,8 @@ class Window(QWidget):
 
 		# layout for the left hand side of ui layouts
 		v_box_left = QVBoxLayout()
-		v_box_left.addLayout(top_row)
-		v_box_left.addWidget(self.user_ip_label)
+		v_box_left.addLayout(top_row1)
+		v_box_left.addLayout(top_row2)
 		v_box_left.addSpacing(10)
 		v_box_left.addWidget(self.system_label_dest)
 		v_box_left.addLayout(destination_grid)
@@ -462,6 +500,14 @@ class Window(QWidget):
 
 		# set the layout
 		self.setLayout(v)
+
+	def hide_output(self, state):
+		if state == Qt.Checked:
+			self.output_display.hide()
+			self.setFixedSize(644, 800)
+		else:
+			self.output_display.show()
+			self.setFixedSize(1450, 800)
 
 	# checks if user has generated ssh keygen before and shows button to generate if not
 	def has_ssh_keygen(self):
@@ -758,6 +804,14 @@ class Window(QWidget):
 			self.show_info_color("red", "Destination Username and IP must have been entered at "
 			                            "least once for this Feature to work!", 5000)
 
+	def get_network_list(self, nl):
+		self.available_hosts = nl
+		return self.available_hosts
+
+	# if user has entered and connected to destination before, can get the ip without typing it
+	def find_ips(self):
+		print(self.available_hosts)
+
 	# get which radio button is pressed for destination OS
 	def get_dest_os(self):
 		if self.dest_os_linux.isChecked():
@@ -816,15 +870,15 @@ class Window(QWidget):
 			                            "*this option will run but is not advised*\t...\t"
 			                            "if you have actaully managed install rsync in windows ignore this", 8000)
 		self.command = "rsync"
-		self.rsync_button.setStyleSheet('color: green')
-		self.scp_button.setStyleSheet('color: darkred')
+		self.rsync_button.setStyleSheet('background-color: green; color: black')
+		self.scp_button.setStyleSheet('background-color: darkred; color: black')
 		self.scp_button.setChecked(False)
 
 	# button to enable scp command instead of rsync
 	def scp_command(self):
 		self.command = "scp"
-		self.scp_button.setStyleSheet('color: green')
-		self.rsync_button.setStyleSheet('color: darkred')
+		self.scp_button.setStyleSheet('background-color: green; color: black')
+		self.rsync_button.setStyleSheet('background-color: darkred; color: black')
 		self.rsync_button.setChecked(False)
 		self.show_info_color("yellow", "!!! WARNING !!!\t\tScp option only copies the folder to destination\t"
 		                               "to copy only the contents of a folder use Rsync!\t"
@@ -911,6 +965,7 @@ class Window(QWidget):
 		self.custom_remote_source_path = ""
 		self.custom_remote_dest_path = ""
 		self.any_errors = False
+		self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
 		if self.operating_system == "linux":
 			self.rsync_button.setChecked(True)
 			self.rsync_command()
@@ -1009,6 +1064,13 @@ class Window(QWidget):
 		# all remote options
 		to_check = [1, 2, 3, 4, 5, 6]
 
+		# add all ticked sync's to finish_er so it can pop each one when done and show completed
+		self.finish_er = []
+		for head in self.what_to_sync:
+			self.finish_er.append(head)
+
+		self.show_info_color("white", "Syncing...", 1000000000)  # give the user feedback
+
 		# loop through sync options ticked
 		for h in self.what_to_sync:
 			# local sync only, make sure custom paths have user input
@@ -1040,9 +1102,9 @@ class Window(QWidget):
 					return
 
 			# if all user input is filled in start the sync
-			self.show_info_color("white", "Syncing...", 1000000000)  # give the user feedback
+			self.sync_button.setStyleSheet("font-size: 20px; background-color: red; color: black")
 			self.update_progress(True)
-			QTest.qWait(1000)
+
 			# creates the sync object, passing it all required input for sync
 			self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
 			                           self.custom_local_dest_path, self.custom_local_source_path,
@@ -1054,7 +1116,6 @@ class Window(QWidget):
 			self.worker.signals.finished.connect(self.print_sync)
 			# signal to show all syncing's are complete
 			self.worker.signals.display_finish.connect(self.sync_complete)
-			self.finish_er.append(h)
 			# start the thread/sync
 			self.pool.start(self.worker)
 
@@ -1068,6 +1129,23 @@ class Window(QWidget):
 			else:
 				self.show_info_color("green", "Sync Completed!", 8000)
 			self.any_errors = False
+			self.sync_button.setStyleSheet("font-size: 20px; color: black")
+
+
+class NetDiscovery(QRunnable):
+	def __init__(self):
+		QRunnable.__init__(self)
+		self.ps = nm.PortScanner()
+		self.signals = WorkerSignals()
+		self.hosts = []
+		self.hosts_up()
+
+	def hosts_up(self):
+		self.ps.scan(hosts="192.168.0.1/24", arguments="-F")
+		hosts_list = [(x, self.ps[x]['status']['state']) for x in self.ps.all_hosts()]
+		for host, status in hosts_list:
+			self.hosts.append(host)
+		self.signals.network_list.emit(self.hosts)
 
 
 class OpenCmd(QRunnable):
@@ -1091,6 +1169,7 @@ class WorkerSignals(QObject):
 	# used to let show_user_info if any errors occured for coloring and feedback
 	sync_errors = pyqtSignal(bool)
 	display_finish = pyqtSignal(int)
+	network_list = pyqtSignal(list)
 
 
 # object for running the sync commands
@@ -1118,6 +1197,7 @@ class SyncThatShit(QRunnable):
 		self.destination = ""
 		self.output = ""
 		self.errors = ""
+		self.para_scp = False
 		self.signals = WorkerSignals()
 		self.sync_sort()
 
@@ -1130,7 +1210,7 @@ class SyncThatShit(QRunnable):
 			# command for local syncs
 			if self.header == 7:
 				if self.command == 'scp':
-					self.options = '-r'
+					self.options = '-rv'
 					if os.path.isfile(self.source_path):
 						# self.proc_command = self.command + " " + self.source_path + " " + self.dest_path
 						p = subprocess.Popen([self.command, self.source_path, self.dest_path],
@@ -1160,12 +1240,13 @@ class SyncThatShit(QRunnable):
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 				else:
+
 					self.options = '-rv'
-					# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-					# 						                    " " + self.destination
 					# self.scp_copy()
 					p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
 					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+					# 						                    " " + self.destination
 
 			# # run the process wait for it to finish and store the output
 			# self.proc.start(self.proc_command)
@@ -1178,14 +1259,19 @@ class SyncThatShit(QRunnable):
 			# self.output = str(self.output, "utf-8")
 			# self.errors = str(self.errors, "utf-8")
 
-			# get command output and errors for use to display in ui
-			self.output, self.errors = p.communicate()
-			self.output = self.output.decode()
-			self.errors = self.errors.decode()
-
 			# get scp output and then clean up scp output
-			if self.command == "scp":
+			if self.para_scp:
 				self.get_scp_output()
+			elif self.command == "scp":
+				self.output, self.errors = p.communicate()
+				self.output = self.output.decode()
+				self.errors = self.errors.decode()
+				self.get_scp_output()
+			else:
+				# get command output and errors for use to display in ui
+				self.output, self.errors = p.communicate()
+				self.output = self.output.decode()
+				self.errors = self.errors.decode()
 
 			# signal connected to print_sync, displaying the outputs of syncs
 			if self.errors != "":
@@ -1199,6 +1285,7 @@ class SyncThatShit(QRunnable):
 			self.signals.display_finish.emit(self.header)
 
 	def scp_copy(self):
+		self.para_scp = True
 		try:
 			client = paramiko.SSHClient()
 			client.load_system_host_keys(self.ssh_path + 'known_hosts')
@@ -1207,13 +1294,14 @@ class SyncThatShit(QRunnable):
 			client.connect(hostname=self.dest_ip, username=self.dest_user, pkey=pkey)
 			with SCPClient(client.get_transport()) as scp:
 				if os.path.isfile(self.source_path):
-					self.output, self.errors = scp.put(self.source_path, self.dest_path)
+					scp.put(self.source_path, self.dest_path)
 				else:
-					self.output, self.errors = scp.put(self.source_path, recursive=True, remote_path=self.dest_path)
+					scp.put(self.source_path, remote_path=self.dest_path, recursive=True)
+
 			# scp.get(self.dest_path, self.source_path)
 			scp.close()
 			client.close()
-		except Exception as e:
+		except SCPException as e:
 			print(e)
 
 	# sets the paths of the sync depending on what sync option/header is used
@@ -1339,6 +1427,7 @@ class MyFileBrowser(QWidget):
 		self.open_button = QPushButton("Open", self)  # pushed when file path is chosen and sends signal
 		self.open_button.clicked.connect(self.return_path)
 		self.open_button.setFixedWidth(200)
+		self.open_button.setStyleSheet("background-color: blue; color: black")
 
 		self.v_box = QVBoxLayout()
 		self.v_box.addWidget(self.view)
