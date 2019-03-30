@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Exec=python3 /path/to/sync_er/sync_er.py
+Icon=/path/to/sync_er/resources/syncer.png
+Name=Sync_er
+Terminal=false
