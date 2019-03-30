@@ -49,7 +49,7 @@ Requirements:
 ## ~~MacOS Installation~~:
 todo
 ## Windows Installation:
-1. Go to _settings_ then _apps_, then click _manage option feautures_
+1. Go to _settings_ then _apps_, then click _manage optional features_
 2. scroll down to Openssh client & Openssh server and click install on both(if they not already installed)
 
 ~~finish this~~
