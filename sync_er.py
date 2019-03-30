@@ -16,47 +16,20 @@ import nmap as nm
 
 '''
 ###################################################################################################################
-								YOU NEED TO HAVE PASSWORDLESS SSH SETUP TO USE THIS
+	THIS PROGRAM WILL GENERATE A PASSWORDLESS RSA KEY PAIR(IF NONE EXISTS) & SETUP PASSWORDLESS SSH CONNECTIONS 
 ###################################################################################################################
 '''
+
 __author__ = "blaka90"
 __version__ = "0.7.6"
-
-'''
-TO FIX:
-
-NetDiscovery is currently broken...don't know why been coding all day(am tired)
-
-adjust scp_copy to work with paramiko add new user
-	-sticking with subprocess version for now
-
-test default documents sync(even linux>linux) with scp...make sure syncs and doesn't just add folder to folder
-	- it does but the . trick isn't/doesn't work anymore?
-	-added warning for now until fixed?
-
-can't uncheck dest_os_* in clear settings (tried don't know how????)
-	
-JUST TESTED ON WINDOWS WITH PYTHON 3.7.2:
-	-installed openssh from settings-apps-manage option feautures-Openssh client/Openssh server
-		-need to test ssh_install.py windows
-		
-	just installed linux subsystem on windows try syncing to that?
-	-path to tester from ubuntu /mnt/c/Users/tester/Desktop/
-
-
-TO ADD:
-
-add instructions and how to's in README aswel as dependencies and windows install and shit
-	
-'''
 
 
 # the main window
 class Window(QWidget):
 	def __init__(self):
 		super(Window, self).__init__()
-		self.nd = NetDiscovery()
-		self.nd.signals.network_list.connect(self.get_network_list)
+		# self.nd = NetDiscovery()
+		# self.nd.signals.network_list.connect(self.get_network_list)
 		self.user_ip = ""
 		self.get_local_ip()
 		self.path()
@@ -604,7 +577,7 @@ class Window(QWidget):
 					shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
 
 			else:
-				shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
+				shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass)
 			shell.exec_command('mkdir -p {}'.format(self.ssh_path))
 			shell.exec_command('echo "{0}" >> {1}'.format(key, auth_keys))
 			shell.exec_command('chmod 644 {}'.format(auth_keys))
