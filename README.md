@@ -6,6 +6,7 @@
 
 
 (STILL IN ALPHA)
+
 **_USE AT YOUR OWN RISK_**
 
 tested with:
@@ -27,7 +28,9 @@ Requirements:
 
 ### Uses:
 Linux default: rsync
+
 MacOS default: rsync
+
 Windows default: scp
 
 &nbsp; &nbsp; Linux and Mac users should use rsync as it is the preferred
