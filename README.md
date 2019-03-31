@@ -62,3 +62,18 @@ todo
 2. scroll down to Openssh client & Openssh server and click install on both(if they not already installed)
 
 **_finish this_**
+
+### SCREENSHOTS:
+
+![normal](https://user-images.githubusercontent.com/8757090/55292194-575c7400-53df-11e9-9cf8-915a57a8722e.png)
+
+better with background? (user choose their own?)
+![image_sync_er](https://user-images.githubusercontent.com/8757090/55291857-aa342c80-53db-11e9-9479-6f78d3742023.png)
+
+![load_user](https://user-images.githubusercontent.com/8757090/55292196-63e0cc80-53df-11e9-9501-77d210e7a1d5.png)
+
+![file_browser](https://user-images.githubusercontent.com/8757090/55292198-6e9b6180-53df-11e9-901d-58c480552474.png)
+
+![sync_ing](https://user-images.githubusercontent.com/8757090/55292199-72c77f00-53df-11e9-958f-cb461f260f72.png)
+
+![completed](https://user-images.githubusercontent.com/8757090/55292200-74914280-53df-11e9-89ce-b4381b7ff313.png)
