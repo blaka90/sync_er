@@ -5,17 +5,20 @@
 ## Cross Platform Gui wrapper for **_RSYNC_** and **_SCP_**
 
 
+(STILL IN ALPHA)
+**_USE AT YOUR OWN RISK_**
+
 tested with:
 - python2.7
 - python3.6
 
 Supports:
-- Linux(Fully Tested)
+- Linux(On-going Testing)
 - MacOS(Partial Testing)
 - Windows(SCP Only)
 
 Requirements:
-- python-nmap
+- ~~python-nmap~~
 - Crypto
 - scp
 - paramiko
@@ -23,6 +26,9 @@ Requirements:
 - pyqt5
 
 ### Uses:
+Linux default: rsync
+MacOS default: rsync
+Windows default: scp
 
 &nbsp; &nbsp; Linux and Mac users should use rsync as it is the preferred
 
