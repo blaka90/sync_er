@@ -1184,7 +1184,9 @@ class SyncThatShit(QRunnable):
 			if self.header == 7:
 				if self.command == 'scp':
 					self.options = '-rv'
-					if os.path.isfile(self.source_path):
+					if (self.dest_os == "windows") or (self.user_os == "windows"):
+						self.scp_copy()
+					elif os.path.isfile(self.source_path):
 						# self.proc_command = self.command + " " + self.source_path + " " + self.dest_path
 						p = subprocess.Popen([self.command, self.source_path, self.dest_path],
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1213,13 +1215,15 @@ class SyncThatShit(QRunnable):
 						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 				else:
-
-					self.options = '-rv'
-					# self.scp_copy()
-					p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
-					                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-					# 						                    " " + self.destination
+					if (self.dest_os == "windows") or (self.user_os == "windows"):
+						self.scp_copy()
+					else:
+						self.options = '-rv'
+						# self.scp_copy()
+						p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
+						                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+						# self.proc_command = self.command + " " + self.options + " " + self.source_path + \
+						# 						                    " " + self.destination
 
 			# # run the process wait for it to finish and store the output
 			# self.proc.start(self.proc_command)
