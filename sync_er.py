@@ -511,7 +511,7 @@ class Window(QWidget):
 
     def run_add_user(self):
         # if self.operating_system == "windows":
-            # return self.fail_safe()
+        # return self.fail_safe()
         self.get_sync_info()
         if self.dest_user_input.text() == "":
             self.show_info_color("red", "Please fill out all Destination Info", 3000)
@@ -976,24 +976,24 @@ class Window(QWidget):
         # if only 1 sync option is getting used this will run
         if self.output_display.toPlainText() == "":
             if len(errors) != 0:
-                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-                                            " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                            + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
                                             + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
             else:
-                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-                                            " sync" + "\n" + "#" * 77 + "\n\n" + output)
+                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                            + " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
         # if multiple syncs are getting run it will append the ouputs together for display
         else:
             if len(errors) != 0:
-                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-                                           " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                           + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
                                            + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
             else:
-                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header] +
-                                           " sync" + "\n" + "#" * 77 + "\n\n" + output)
+                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                           + " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
         self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
 
