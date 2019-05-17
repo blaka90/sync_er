@@ -12,7 +12,7 @@ import netifaces as ni
 import paramiko
 from scp import SCPClient, SCPException
 from functools import partial
-import nmap as nm
+# import nmap as nm
 
 '''
 ###################################################################################################################
@@ -510,8 +510,6 @@ class Window(QWidget):
             return False
 
     def run_add_user(self):
-        # if self.operating_system == "windows":
-        # return self.fail_safe()
         self.get_sync_info()
         if self.dest_user_input.text() == "":
             self.show_info_color("red", "Please fill out all Destination Info", 3000)
@@ -1114,9 +1112,13 @@ class NetDiscovery(QRunnable):
         self.hosts_up()
 
     def hosts_up(self):
-        self.ps.scan(hosts="192.168.0.1/24", arguments="-F")
+        self.ps.scan(hosts="192.168.0.1/24", arguments="-F")  # was -O with sudo=True
         hosts_list = [(x, self.ps[x]['status']['state']) for x in self.ps.all_hosts()]
         for host, status in hosts_list:
+            try:
+                hn = socket.gethostbyaddr(host)
+            except socket.herror:
+                print(hn)
             self.hosts.append(host)
         self.signals.network_list.emit(self.hosts)
 
