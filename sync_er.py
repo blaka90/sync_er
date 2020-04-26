@@ -63,7 +63,7 @@ class Window(QWidget):
     def start_style():
         # sets the window to dark mode with the fusion styling
         # from PyQt5.QtGui import * and from PyQt5.QtCore import * are needed mostly just for this to run correctly
-        qApp.setStyle("Fusion")
+        qApp.setStyle("Oxygen")
         dark_palette = QPalette()
         dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
         dark_palette.setColor(QPalette.WindowText, Qt.white)
