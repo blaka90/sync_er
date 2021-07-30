@@ -29,8 +29,8 @@ __version__ = "0.7.6"
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
-        self.nd = NetDiscovery()
-        self.nd.signals.network_list.connect(self.get_network_list)
+        # self.nd = NetDiscovery()
+        # self.nd.signals.network_list.connect(self.get_network_list)
         self.user_ip = ""
         self.get_local_ip()
         self.path()
@@ -510,7 +510,13 @@ class Window(QWidget):
                                            "to get started!", 15000)
             return False
 
+    def check_for_saved_ips(self):
+        if not os.path.isfile("resources/" + self.user + "_saved_ips.txt"):
+            with open("resources/" + self.user + "_saved_ips.txt", "w") as f:
+                f.close()
+
     def run_add_user(self):
+        self.check_for_saved_ips()
         self.get_sync_info()
         if self.dest_user_input.text() == "":
             self.show_info_color("red", "Please fill out all Destination Info", 3000)
@@ -589,15 +595,15 @@ class Window(QWidget):
             self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
 
         if self.append:
-            with open("resources/saved_ips.txt", "a+") as f:
+            with open("resources/" + self.user + "_saved_ips.txt", "a+") as f:
                 f.write(to_save)
                 f.close()
                 self.show_info_color("green", "successfully saved User data!", 5000)
         else:
-            with open("resources/saved_ips.txt", "r") as f:
+            with open("resources/" + self.user + "_saved_ips.txt", "r") as f:
                 fr = f.readlines()
                 f.close()
-            with open("resources/saved_ips.txt", "w") as f:
+            with open("resources/" + self.user + "_saved_ips.txt", "w") as f:
                 for line in fr:
                     if line.startswith(self.dest_user):
                         if line != to_save:
@@ -611,7 +617,7 @@ class Window(QWidget):
 
     def r_known_hosts(self, kh):
         ip = ""
-        with open("resources/saved_ips.txt", "r") as f:
+        with open("resources/" + self.user + "_saved_ips.txt", "r") as f:
             fr = f.readlines()
             f.close()
             for line in fr:
@@ -687,7 +693,7 @@ class Window(QWidget):
 
     # if user has added new destination, can get all user info without typing it
     def get_added_user(self):
-        with open('resources/saved_ips.txt', 'r+') as f:
+        with open("resources/" + self.user + "_saved_ips.txt", 'r+') as f:
             lines = f.readlines()
             f.seek(0)
             f.writelines(line for line in lines if line.strip())
@@ -695,7 +701,7 @@ class Window(QWidget):
             f.close()
         try:
             # check for user in saved_ips list and set in dest_ip_input
-            saved_ips = open("resources/saved_ips.txt", "r")
+            saved_ips = open("resources/" + self.user + "_saved_ips.txt", "r")
             saved_ips_lines = saved_ips.readlines()
             saved_ips.close()
         except FileNotFoundError:
@@ -750,7 +756,7 @@ class Window(QWidget):
             self.get_sync_info()
         try:
             # check for user in saved_ips list and set in dest_ip_input
-            saved_ips = open("resources/saved_ips.txt", "r")
+            saved_ips = open("resources/" + self.user + "_saved_ips.txt", "r")
             saved_ips_lines = saved_ips.readlines()
             saved_ips.close()
             num_lines = len(saved_ips_lines)
@@ -1118,9 +1124,9 @@ class NetDiscovery(QRunnable):
         for host, status in hosts_list:
             try:
                 hn = socket.gethostbyaddr(host)
+                self.hosts.append(host)
             except socket.herror:
                 print(hn)
-            self.hosts.append(host)
         self.signals.network_list.emit(self.hosts)
 
 

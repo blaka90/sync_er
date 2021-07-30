@@ -1,7 +1,7 @@
 .idea
 .pyc
 .DS_Store
-saved_ips.txt
+*saved_ips.txt
 __pycache__
 syncer_keygen.txt
 output_display.jpeg
