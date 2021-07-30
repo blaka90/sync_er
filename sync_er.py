@@ -1,19 +1,21 @@
 from __future__ import unicode_literals
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
 from PyQt5.QtTest import QTest
-import subprocess
-import os
-import sys
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+# from netdisco.discovery import NetworkDiscovery
+from scp import SCPClient, SCPException
 from Crypto.PublicKey import RSA
+from functools import partial
 from getpass import getuser
 import netifaces as ni
-import paramiko
-from scp import SCPClient, SCPException
-from functools import partial
+import subprocess
 import nmap as nm
+import paramiko
 import socket
+import os
+import sys
+
 
 '''
 ###################################################################################################################
@@ -22,15 +24,13 @@ import socket
 '''
 
 __author__ = "blaka90"
-__version__ = "0.7.6"
+__version__ = "0.8.1"
 
 
 # the main window
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
-        # self.nd = NetDiscovery()
-        # self.nd.signals.network_list.connect(self.get_network_list)
         self.user_ip = ""
         self.get_local_ip()
         self.path()
@@ -55,10 +55,11 @@ class Window(QWidget):
         self.try_passphrase = False
         self.append = False
         self.finish_er = []
-        self.available_hosts = None
+        self.available_hosts = []
         # create pool for threads if multiple syncs in one go
         self.pool = QThreadPool()
         self.pool.setMaxThreadCount(8)
+        self.find_ips()
 
     @staticmethod
     def start_style():
@@ -515,9 +516,7 @@ class Window(QWidget):
             with open("resources/" + self.user + "_saved_ips.txt", "w") as f:
                 f.close()
 
-    def run_add_user(self):
-        self.check_for_saved_ips()
-        self.get_sync_info()
+    def run_checks(self):
         if self.dest_user_input.text() == "":
             self.show_info_color("red", "Please fill out all Destination Info", 3000)
             return
@@ -529,6 +528,11 @@ class Window(QWidget):
             return
 
         self.show_info_color("yellow", "Trying to save User data", 10000)
+
+    def run_add_user(self):
+        self.check_for_saved_ips()
+        self.get_sync_info()
+        self.run_checks()
 
         to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
 
@@ -639,20 +643,6 @@ class Window(QWidget):
         else:
             self.append = True
             return self.append
-
-    # no calls to this(keeping for testing until evrything is bulletproof!!)
-    def fail_safe(self):
-        self.show_info_color("yellow", "Trying a different method", 5000)
-        if self.operating_system == "linux":
-            op_cmd = OpenCmd(["gnome-terminal", "-e", "'python3' 'ssh_install.py'"])
-            return op_cmd
-        elif self.operating_system == "windows":
-            self.show_info_color("gray", "A command prompt should have opened...follow the instructions", 10000)
-            QTest.qWait(1000)
-            op_cmd = OpenCmd(["cmd.exe", "start", "cmd.exe", "/k", "python ssh_install.py"])
-            return op_cmd
-        else:
-            print("Not implemented yet")
 
     def run_keygen(self):
         if self.operating_system == "linux":
@@ -783,12 +773,16 @@ class Window(QWidget):
                                         "least once for this Feature to work!", 5000)
 
     def get_network_list(self, nl):
-        self.available_hosts = nl
-        return self.available_hosts
+        self.available_hosts = sorted(nl)
+        self.output_display.append("\n\nAvailable IP Addresses on network:\n")
+        for ip in self.available_hosts:
+            self.output_display.append(ip)
 
-    # if user has entered and connected to destination before, can get the ip without typing it
+    # Host Discovery
     def find_ips(self):
-        print(self.available_hosts)
+        self.nd = NetDiscovery()
+        self.nd.signals.network_list.connect(self.get_network_list)
+        self.pool.start(self.nd)
 
     # get which radio button is pressed for destination OS
     def get_dest_os(self):
@@ -1113,20 +1107,21 @@ class Window(QWidget):
 class NetDiscovery(QRunnable):
     def __init__(self):
         QRunnable.__init__(self)
-        self.ps = nm.PortScanner()
+        self.nm = nm.PortScanner()
+        # self.netdis = NetworkDiscovery()
         self.signals = WorkerSignals()
         self.hosts = []
-        self.hosts_up()
 
-    def hosts_up(self):
-        self.ps.scan(hosts="192.168.0.1/24", arguments="-F")  # was -O with sudo=True
-        hosts_list = [(x, self.ps[x]['status']['state']) for x in self.ps.all_hosts()]
-        for host, status in hosts_list:
-            try:
-                hn = socket.gethostbyaddr(host)
-                self.hosts.append(host)
-            except socket.herror:
-                print(hn)
+    def run(self):
+        self.nm.scan(hosts="192.168.0.1/24", arguments="-F")
+        for host in self.nm.all_hosts():
+            self.hosts.append(host)
+        """
+        self.netdis.scan()
+        for dev in self.netdis.discover():
+            print(dev, self.netdis.get_info(dev))
+        self.netdis.stop()
+        """
         self.signals.network_list.emit(self.hosts)
 
 
