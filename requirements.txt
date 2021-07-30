@@ -1,5 +1,5 @@
 python-nmap
-Crypto
+pycryptodome
 scp
 paramiko
 netifaces

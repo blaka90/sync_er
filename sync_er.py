@@ -12,7 +12,8 @@ import netifaces as ni
 import paramiko
 from scp import SCPClient, SCPException
 from functools import partial
-# import nmap as nm
+import nmap as nm
+import socket
 
 '''
 ###################################################################################################################
@@ -28,8 +29,8 @@ __version__ = "0.7.6"
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
-        # self.nd = NetDiscovery()
-        # self.nd.signals.network_list.connect(self.get_network_list)
+        self.nd = NetDiscovery()
+        self.nd.signals.network_list.connect(self.get_network_list)
         self.user_ip = ""
         self.get_local_ip()
         self.path()
@@ -90,7 +91,7 @@ class Window(QWidget):
 
     def welcome_banner(self):  # nostalgia from my cli version
         if "blaka" in self.user:
-            return "--_--" * 30 + "\n" + " " * 100 + "SYNC_ER" + "\n" + "_-_" * 40 + "\n"
+            return "--_--" * 38 + "\n" + " " * 115 + "SYNC_ER" + "\n" + "_-_" * 53 + "\n"
 
     def get_os(self):
         if "linux" in sys.platform.lower():
