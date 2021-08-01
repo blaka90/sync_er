@@ -36,6 +36,7 @@ class Window(QWidget):
         self.path()
         self.start_style()
         self.user = getuser()
+        self.host_name = os.uname()[1]
         self.operating_system = ""
         self.dest_operating_system = ""
         self.get_os()
@@ -512,8 +513,8 @@ class Window(QWidget):
             return False
 
     def check_for_saved_ips(self):
-        if not os.path.isfile("resources/" + self.user + "_saved_ips.txt"):
-            with open("resources/" + self.user + "_saved_ips.txt", "w") as f:
+        if not os.path.isfile("resources/" + self.host_name + "_saved_ips.txt"):
+            with open("resources/" + self.host_name + "_saved_ips.txt", "w") as f:
                 f.close()
 
     def run_checks(self):
@@ -599,15 +600,15 @@ class Window(QWidget):
             self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
 
         if self.append:
-            with open("resources/" + self.user + "_saved_ips.txt", "a+") as f:
+            with open("resources/" + self.host_name + "_saved_ips.txt", "a+") as f:
                 f.write(to_save)
                 f.close()
                 self.show_info_color("green", "successfully saved User data!", 5000)
         else:
-            with open("resources/" + self.user + "_saved_ips.txt", "r") as f:
+            with open("resources/" + self.host_name + "_saved_ips.txt", "r") as f:
                 fr = f.readlines()
                 f.close()
-            with open("resources/" + self.user + "_saved_ips.txt", "w") as f:
+            with open("resources/" + self.host_name + "_saved_ips.txt", "w") as f:
                 for line in fr:
                     if line.startswith(self.dest_user):
                         if line != to_save:
@@ -621,7 +622,7 @@ class Window(QWidget):
 
     def r_known_hosts(self, kh):
         ip = ""
-        with open("resources/" + self.user + "_saved_ips.txt", "r") as f:
+        with open("resources/" + self.host_name + "_saved_ips.txt", "r") as f:
             fr = f.readlines()
             f.close()
             for line in fr:
@@ -683,7 +684,8 @@ class Window(QWidget):
 
     # if user has added new destination, can get all user info without typing it
     def get_added_user(self):
-        with open("resources/" + self.user + "_saved_ips.txt", 'r+') as f:
+        self.check_for_saved_ips()
+        with open("resources/" + self.host_name + "_saved_ips.txt", 'r+') as f:
             lines = f.readlines()
             f.seek(0)
             f.writelines(line for line in lines if line.strip())
@@ -691,7 +693,7 @@ class Window(QWidget):
             f.close()
         try:
             # check for user in saved_ips list and set in dest_ip_input
-            saved_ips = open("resources/" + self.user + "_saved_ips.txt", "r")
+            saved_ips = open("resources/" + self.host_name + "_saved_ips.txt", "r")
             saved_ips_lines = saved_ips.readlines()
             saved_ips.close()
         except FileNotFoundError:
@@ -746,7 +748,7 @@ class Window(QWidget):
             self.get_sync_info()
         try:
             # check for user in saved_ips list and set in dest_ip_input
-            saved_ips = open("resources/" + self.user + "_saved_ips.txt", "r")
+            saved_ips = open("resources/" + self.host_name + "_saved_ips.txt", "r")
             saved_ips_lines = saved_ips.readlines()
             saved_ips.close()
             num_lines = len(saved_ips_lines)
