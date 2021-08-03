@@ -180,6 +180,7 @@ class Window(QWidget):
         # hides the output window
         self.hide_op = QCheckBox("Hide Display", self)
         self.hide_op.stateChanged.connect(self.hide_output)
+        self.hide_op.setChecked(True)
         self.hide_op.setFixedWidth(120)
         self.hide_op.setStyleSheet("color: black")
 
@@ -200,7 +201,8 @@ class Window(QWidget):
 
         # experimental lazy way of getting saved ip's
         self.find_dest_info_button = QPushButton("Find")
-        self.find_dest_info_button.setFixedWidth(60)
+        self.find_dest_info_button.setFixedWidth(80)
+        self.find_dest_info_button.setFixedHeight(30)
         self.find_dest_info_button.clicked.connect(self.find_ips)
         # self.find_dest_info_button.setStyleSheet("background-color: blue; color: black")
 
@@ -216,7 +218,8 @@ class Window(QWidget):
 
         # easier way of getting saved ip's
         self.get_added_button = QPushButton("choose")
-        self.get_added_button.setFixedWidth(60)
+        self.get_added_button.setFixedWidth(80)
+        self.get_added_button.setFixedHeight(30)
         self.get_added_button.clicked.connect(self.get_added_user)
         # self.get_added_button.setStyleSheet("background-color: blue; color: black")
 
@@ -238,10 +241,12 @@ class Window(QWidget):
         # only shows if ssh is not already setup from this system
         self.gen_ssh_keys_button = QPushButton("Generate SSH Keygen")
         self.gen_ssh_keys_button.clicked.connect(self.run_keygen)
+        self.gen_ssh_keys_button.setFixedHeight(30)
         # self.gen_ssh_keys_button.setStyleSheet("background-color: blue; color: black")
 
         self.add_user = QPushButton("Add New Destination")
         self.add_user.clicked.connect(self.run_add_user)
+        self.add_user.setFixedHeight(30)
         # self.add_user.setStyleSheet("background-color: darkblue; color: black")
 
         # label for section flags used for syncs
@@ -292,41 +297,49 @@ class Window(QWidget):
         # user input box for the source of local syncs
         self.custom_local_path_src = QLineEdit(self)
         self.custom_local_path_src.setPlaceholderText("Type Full Source Path   or    press -->")
-        self.custom_local_path_src.setDisabled(True)
+        self.custom_local_path_src.setFixedHeight(20)
+        #self.custom_local_path_src.setDisabled(True)
         # user input box for the destination of local syncs
         self.custom_local_path_dst = QLineEdit(self)
         self.custom_local_path_dst.setPlaceholderText("Type Full Destination Path   or      -->")
-        self.custom_local_path_dst.setDisabled(True)
+        self.custom_local_path_dst.setFixedHeight(20)
+        #self.custom_local_path_dst.setDisabled(True)
 
         # user input box for the source of remote syncs
         self.custom_remote_path_src = QLineEdit(self)
         self.custom_remote_path_src.setPlaceholderText("Type Full Source Path   or    press -->")
-        self.custom_remote_path_src.setDisabled(True)
+        self.custom_remote_path_src.setFixedHeight(20)
+        #self.custom_remote_path_src.setDisabled(True)
         # user input box for the destination of remote syncs
         self.custom_remote_path_dst = QLineEdit(self)
         self.custom_remote_path_dst.setPlaceholderText("Type Full Destination Path   or      -->")
-        self.custom_remote_path_dst.setDisabled(True)
+        self.custom_remote_path_dst.setFixedHeight(20)
+        #self.custom_remote_path_dst.setDisabled(True)
 
         # button to open the file browser for local source path
         self.custom_local_path_src_button = QPushButton("...", self)
-        self.custom_local_path_src_button.setFixedWidth(20)
+        self.custom_local_path_src_button.setFixedWidth(40)
+        self.custom_local_path_src_button.setFixedHeight(20)
         self.custom_local_path_src_button.clicked.connect(partial(self.get_browser, custom_path="local_source"))
-        self.custom_local_path_src_button.setDisabled(True)
+        #self.custom_local_path_src_button.setDisabled(True)
         # button to open the file browser fro local destination path
         self.custom_local_path_dst_button = QPushButton("...", self)
-        self.custom_local_path_dst_button.setFixedWidth(20)
+        self.custom_local_path_dst_button.setFixedWidth(40)
+        self.custom_local_path_dst_button.setFixedHeight(20)
         self.custom_local_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="local_dest"))
-        self.custom_local_path_dst_button.setDisabled(True)
+        #self.custom_local_path_dst_button.setDisabled(True)
         # button to open the file browser for remote source path
         self.custom_remote_path_src_button = QPushButton("...", self)
-        self.custom_remote_path_src_button.setFixedWidth(20)
+        self.custom_remote_path_src_button.setFixedWidth(40)
+        self.custom_remote_path_src_button.setFixedHeight(20)
         self.custom_remote_path_src_button.clicked.connect(partial(self.get_browser, custom_path="remote_source"))
-        self.custom_remote_path_src_button.setDisabled(True)
+        #self.custom_remote_path_src_button.setDisabled(True)
         # button to open the file browser for remote destination path
         self.custom_remote_path_dst_button = QPushButton("...", self)
-        self.custom_remote_path_dst_button.setFixedWidth(20)
+        self.custom_remote_path_dst_button.setFixedWidth(40)
+        self.custom_remote_path_dst_button.setFixedHeight(20)
         self.custom_remote_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="remote_dest"))
-        self.custom_remote_path_dst_button.setDisabled(True)
+        #self.custom_remote_path_dst_button.setDisabled(True)
 
         # label used to show the user some feedback in many instances
         self.show_user_info = QLabel(self)
@@ -342,13 +355,13 @@ class Window(QWidget):
         self.clear_settings_button = QPushButton("Clear Settings", self)
         self.clear_settings_button.clicked.connect(self.clear_settings)
         self.clear_settings_button.setFixedWidth(150)
-        self.clear_settings_button.setFixedHeight(25)
+        self.clear_settings_button.setFixedHeight(30)
         # self.clear_settings_button.setStyleSheet("background-color: blue; color: black")
         # button to clear the display  only
         self.clear_display_button = QPushButton("Clear Display", self)
         self.clear_display_button.clicked.connect(self.clear_display)
         self.clear_display_button.setFixedWidth(150)
-        self.clear_display_button.setFixedHeight(25)
+        self.clear_display_button.setFixedHeight(30)
         # self.clear_display_button.setStyleSheet("background-color: blue; color: black")
 
         # should have used QMainWindow but am here now -_-
