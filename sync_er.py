@@ -24,7 +24,7 @@ import sys
 '''
 
 __author__ = "blaka90"
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 
 # the main window
@@ -1108,6 +1108,7 @@ class Window(QWidget):
 
     # wait for all syncs to complete
     def sync_complete(self, head):
+        self.hide_op.setChecked(True)
         self.finish_er.remove(head)
         if not self.finish_er:
             self.update_progress(False)
@@ -1452,10 +1453,32 @@ class MyFileBrowser(QWidget):
 def main():
     # create the application
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+
     # inintilze the window object
     window = Window()
     # show the window
     window.show()
+
+    # Create the tray
+    tray = QSystemTrayIcon()
+    tray.setIcon(QIcon("resources/syncer.png"))
+    tray.setVisible(True)
+    # Create the menu
+    menu = QMenu()
+    action1 = QAction("Sync")
+    action1.triggered.connect(window.syncer)
+    menu.addAction(action1)
+
+    action2 = QAction("Show")
+    action2.triggered.connect(window.show)
+    menu.addAction(action2)
+
+    quit = QAction("Quit")
+    quit.triggered.connect(app.quit)
+    menu.addAction(quit)
+    tray.setContextMenu(menu)
+
     sys.exit(app.exec_())
 
 
