@@ -1108,7 +1108,7 @@ class Window(QWidget):
 
     # wait for all syncs to complete
     def sync_complete(self, head):
-        self.hide_op.setChecked(True)
+        self.hide_op.setChecked(False)
         self.finish_er.remove(head)
         if not self.finish_er:
             self.update_progress(False)
