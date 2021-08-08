@@ -1464,6 +1464,7 @@ def main():
     tray = QSystemTrayIcon()
     tray.setIcon(QIcon("resources/syncer.png"))
     tray.setVisible(True)
+
     # Create the menu
     menu = QMenu()
     action1 = QAction("Sync")
@@ -1477,6 +1478,8 @@ def main():
     quit = QAction("Quit")
     quit.triggered.connect(app.quit)
     menu.addAction(quit)
+    
+    # Add the menu to the tray
     tray.setContextMenu(menu)
 
     sys.exit(app.exec_())
