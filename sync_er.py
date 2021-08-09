@@ -194,10 +194,26 @@ class Window(QWidget):
         self.dest_user_label = QLabel(self)
         self.dest_user_label.setText("Destination Username:")
 
-        # user input box for the destination usenname
+        # user input box for the destination username
         self.dest_user_input = QLineEdit(self)
         self.dest_user_input.setFixedWidth(220)
         self.dest_user_input.setPlaceholderText("Username of other computer")
+
+        # connected users available
+        ubox = QStringListModel(["Hi", "i'm", "a", "list"])
+        self.user_box = QListView()
+        self.user_box.setFixedHeight(70)
+        self.user_box.setFixedWidth(150)
+        self.user_box.setModel(ubox)
+        self.user_box.show()
+
+        # Label for available users
+        self.prev_paired_label = QLabel(self)
+        self.prev_paired_label.setText("Previously Paired:")
+        self.prev_paired_label.setStyleSheet("color: gray")
+
+        # Blank space
+        self.blank_holder = QLabel(self)
 
         # experimental lazy way of getting saved ip's
         self.find_dest_info_button = QPushButton("Find")
@@ -380,6 +396,13 @@ class Window(QWidget):
         # top_row2.setAlignment(Qt.AlignRight)
         top_row2.addWidget(self.hide_op)
 
+        top_row3 = QHBoxLayout()
+        top_row3.addWidget(self.blank_holder)
+        top_row3.addSpacing(80)
+        top_row3.addWidget(self.system_label_dest)
+        top_row3.addSpacing(90)
+        top_row3.addWidget(self.prev_paired_label)
+
         # ride side of bottom buttons
         clear_buttons = QVBoxLayout()
         clear_buttons.addWidget(self.clear_display_button)
@@ -405,13 +428,15 @@ class Window(QWidget):
         destination_grid = QGridLayout()
         destination_grid.setSpacing(20)
         destination_grid.setAlignment(Qt.AlignTop)
-        destination_grid.setContentsMargins(60, 10, 30, 20)
+        destination_grid.setContentsMargins(30, 10, 10, 30)
         destination_grid.addWidget(self.dest_user_label, 0, 0)
         destination_grid.addWidget(self.dest_user_input, 0, 1)
-        destination_grid.addWidget(self.find_dest_info_button, 0, 2)
+        # destination_grid.addWidget(self.find_dest_info_button, 0, 2)
+        # destination_grid.addWidget(self.prev_paired_label, 0, 2)
         destination_grid.addWidget(self.dest_ip_label, 1, 0)
         destination_grid.addWidget(self.dest_ip_input, 1, 1)
-        destination_grid.addWidget(self.get_added_button, 1, 2)
+        # destination_grid.addWidget(self.get_added_button, 1, 2)
+        destination_grid.addWidget(self.user_box, 0, 2)
         destination_grid.addWidget(self.dest_os_label, 2, 0)
         destination_grid.addLayout(h_box_os_buttons, 2, 1)
         if not self.has_ssh_keygen():
@@ -450,7 +475,8 @@ class Window(QWidget):
         v_box_left.addLayout(top_row1)
         v_box_left.addLayout(top_row2)
         v_box_left.addSpacing(10)
-        v_box_left.addWidget(self.system_label_dest)
+        # v_box_left.addWidget(self.system_label_dest)
+        v_box_left.addLayout(top_row3)
         v_box_left.addLayout(destination_grid)
         v_box_left.addWidget(self.system_label_flag_options)
         v_box_left.addLayout(flag_options_grid)
@@ -1478,7 +1504,7 @@ def main():
     quit = QAction("Quit")
     quit.triggered.connect(app.quit)
     menu.addAction(quit)
-    
+
     # Add the menu to the tray
     tray.setContextMenu(menu)
 
