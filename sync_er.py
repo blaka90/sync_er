@@ -24,7 +24,7 @@ import sys
 '''
 
 __author__ = "blaka90"
-__version__ = "0.8.2"
+__version__ = "0.8.4"
 
 
 # the main window
