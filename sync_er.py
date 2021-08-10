@@ -39,6 +39,8 @@ class Window(QWidget):
         self.host_name = os.uname()[1]
         self.operating_system = ""
         self.dest_operating_system = ""
+        self.avail_user_box_list = []
+        self.check_for_saved_ips()
         self.get_os()
         self.init_ui()
         self.options = None
@@ -200,12 +202,15 @@ class Window(QWidget):
         self.dest_user_input.setPlaceholderText("Username of other computer")
 
         # connected users available
-        ubox = QStringListModel(["Hi", "i'm", "a", "list"])
-        self.user_box = QListView()
-        self.user_box.setFixedHeight(70)
-        self.user_box.setFixedWidth(150)
-        self.user_box.setModel(ubox)
-        self.user_box.show()
+        self.avail_user_box = QListWidget()
+        self.avail_user_box.setFixedHeight(70)
+        self.avail_user_box.setFixedWidth(150)
+        num = 0
+        for h in self.avail_user_box_list:
+            self.avail_user_box.insertItem(num, h)
+            num += 1
+        self.avail_user_box.clicked.connect(self.fill_available)
+
 
         # Label for available users
         self.prev_paired_label = QLabel(self)
@@ -214,13 +219,6 @@ class Window(QWidget):
 
         # Blank space
         self.blank_holder = QLabel(self)
-
-        # experimental lazy way of getting saved ip's
-        self.find_dest_info_button = QPushButton("Find")
-        self.find_dest_info_button.setFixedWidth(80)
-        self.find_dest_info_button.setFixedHeight(30)
-        self.find_dest_info_button.clicked.connect(self.find_ips)
-        # self.find_dest_info_button.setStyleSheet("background-color: blue; color: black")
 
         # label for destination ip address
         self.dest_ip_label = QLabel(self)
@@ -232,12 +230,21 @@ class Window(QWidget):
         # self.dest_ip_input.setText("192.168.0.")  # I'm lazy      ----may remove this coz find button
         self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
+        """
+        # experimental lazy way of getting saved ip's
+        self.find_dest_info_button = QPushButton("Find")
+        self.find_dest_info_button.setFixedWidth(80)
+        self.find_dest_info_button.setFixedHeight(30)
+        self.find_dest_info_button.clicked.connect(self.find_ips)
+        # self.find_dest_info_button.setStyleSheet("background-color: blue; color: black")
+
         # easier way of getting saved ip's
         self.get_added_button = QPushButton("choose")
         self.get_added_button.setFixedWidth(80)
         self.get_added_button.setFixedHeight(30)
         self.get_added_button.clicked.connect(self.get_added_user)
         # self.get_added_button.setStyleSheet("background-color: blue; color: black")
+        """
 
         # get the os type of destination and later try change path accordingly
         self.dest_os_label = QLabel(self)
@@ -436,7 +443,7 @@ class Window(QWidget):
         destination_grid.addWidget(self.dest_ip_label, 1, 0)
         destination_grid.addWidget(self.dest_ip_input, 1, 1)
         # destination_grid.addWidget(self.get_added_button, 1, 2)
-        destination_grid.addWidget(self.user_box, 0, 2)
+        destination_grid.addWidget(self.avail_user_box, 0, 2)
         destination_grid.addWidget(self.dest_os_label, 2, 0)
         destination_grid.addLayout(h_box_os_buttons, 2, 1)
         if not self.has_ssh_keygen():
@@ -555,6 +562,20 @@ class Window(QWidget):
         if not os.path.isfile("resources/" + self.host_name + "_saved_ips.txt"):
             with open("resources/" + self.host_name + "_saved_ips.txt", "w") as f:
                 f.close()
+
+        with open("resources/" + self.host_name + "_saved_ips.txt", 'r+') as f:
+            lines = f.readlines()
+            f.seek(0)
+            f.writelines(line for line in lines if line.strip())
+            f.truncate()
+            f.close()
+
+            num_lines = len(lines)
+            if num_lines == 0:
+                self.show_info_color("red", "No users seem to be added?", 5000)
+            for line in lines:
+                u_data = line.split()
+                self.avail_user_box_list.append(u_data[0])
 
     def run_checks(self):
         if self.dest_user_input.text() == "":
@@ -721,62 +742,25 @@ class Window(QWidget):
         except RSA.error:
             self.show_info_color("red", "Failed to Create ssh keys!", 5000)
 
-    # if user has added new destination, can get all user info without typing it
-    def get_added_user(self):
-        self.check_for_saved_ips()
-        with open("resources/" + self.host_name + "_saved_ips.txt", 'r+') as f:
-            lines = f.readlines()
-            f.seek(0)
-            f.writelines(line for line in lines if line.strip())
-            f.truncate()
-            f.close()
-        try:
-            # check for user in saved_ips list and set in dest_ip_input
-            saved_ips = open("resources/" + self.host_name + "_saved_ips.txt", "r")
-            saved_ips_lines = saved_ips.readlines()
-            saved_ips.close()
-        except FileNotFoundError:
-            self.show_info_color("red", "You must use 'Add New Destination' button at least "
-                                        "once for this Feature to work!", 5000)
-            return
-        try:
-            num_lines = len(saved_ips_lines)
-            if num_lines == 0:
-                self.show_info_color("red", "No users seem to be added?", 5000)
-            users = []
-            for line in saved_ips_lines:
-                u_data = line.split()
-                users.append(u_data[0])
-
-            user, okpressed = QInputDialog.getItem(self, "Load User Info", "Saved Users:", users, 0, False)
-            if okpressed and user:
-
-                for line in saved_ips_lines:
-                    ndest_data = line.split()
-                    if user == ndest_data[0]:
-                        self.dest_user_input.setText(ndest_data[0])
-                        self.dest_ip_input.setText(ndest_data[1])
-                        if ndest_data[2] == "linux":
-                            self.dest_os_linux.setChecked(True)
-                        elif ndest_data[2] == "mac":
-                            self.dest_os_mac.setChecked(True)
-                        elif ndest_data[2] == "windows":
-                            self.dest_os_windows.setChecked(True)
-                        return
-                    else:
-                        continue
-        except IndexError:
-            self.show_info_color("red", "It appears user data is broken!", 10000)
-            self.output_display.setText("\tOpen saved_ips.txt  and  make sure it looks like:\n\n"
-                                        "USER IP OS\n\n\tor if multiple:\n\nUSER IP OS\nUSER IP OS\nUSER IP OS\n\n"
-                                        "\texample:\n\nadam 192.168.0.24 windows\n\n\tor if multiple:"
-                                        "\n\nadam 192.168.0.24 windows\nbob 192.168.0.67 mac\ndebra 192.168.0.52 linux"
-                                        "\n\nmake sure there is a space in between USER and IP and OS"
-                                        "\n\n\nIf you are still seeing this message after trying to fix you didn't "
-                                        "leave spaces\n\n     space  space\nUSER  ^  IP  ^  OS\n\n"
-                                        "or:\n if any (USER IP OS) is missing and you have already added new destiantion"
-                                        " and it was working before just add it back\n\nelse:\n"
-                                        "delete that line altogether and try adding new destination again")
+    def fill_available(self):
+        saved_ips = open("resources/" + self.host_name + "_saved_ips.txt", "r")
+        saved_ips_lines = saved_ips.readlines()
+        saved_ips.close()
+        user = self.avail_user_box.currentItem().text()
+        for line in saved_ips_lines:
+            ndest_data = line.split()
+            if user == ndest_data[0]:
+                self.dest_user_input.setText(ndest_data[0])
+                self.dest_ip_input.setText(ndest_data[1])
+                if ndest_data[2] == "linux":
+                    self.dest_os_linux.setChecked(True)
+                elif ndest_data[2] == "mac":
+                    self.dest_os_mac.setChecked(True)
+                elif ndest_data[2] == "windows":
+                    self.dest_os_windows.setChecked(True)
+                return
+            else:
+                continue
 
     # if user has entered and connected to destination before, can get the ip without typing it
     def get_saved_ip(self):
