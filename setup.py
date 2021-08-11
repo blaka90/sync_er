@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
 	name='sync_er',
-	version='0.8.6',
+	version='0.8.5',
 	packages=['netifaces', "pyqt5", "scp", "paramiko", "pexpect"],
 	url='',
 	license='GPLv3',
