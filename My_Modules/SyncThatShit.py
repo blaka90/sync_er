@@ -3,7 +3,7 @@ import subprocess
 import paramiko
 import os
 from scp import SCPClient, SCPException
-from WorkerSignals import WorkerSignals
+from My_Modules.WorkerSignals import WorkerSignals
 
 
 # object for running the sync commands

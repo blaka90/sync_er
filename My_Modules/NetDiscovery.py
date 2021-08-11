@@ -1,5 +1,5 @@
 from PyQt5.QtCore import *
-from WorkerSignals import WorkerSignals
+from My_Modules.WorkerSignals import WorkerSignals
 import nmap as nm
 # from netdisco.discovery import NetworkDiscovery
 
