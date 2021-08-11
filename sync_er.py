@@ -3,19 +3,22 @@ from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-# from netdisco.discovery import NetworkDiscovery
-from scp import SCPClient, SCPException
 from Crypto.PublicKey import RSA
 from functools import partial
 from getpass import getuser
 import netifaces as ni
 import subprocess
-import nmap as nm
 import paramiko
 import socket
 import os
 import sys
 
+# My Internal Classes
+from MyFileBrowser import MyFileBrowser
+from SyncThatShit import SyncThatShit
+from WorkerSignals import WorkerSignals
+from NetDiscovery import NetDiscovery
+from OpenCmd import OpenCmd    # Don't think i use this anymore
 
 '''
 ###################################################################################################################
@@ -799,7 +802,7 @@ class Window(QWidget):
 
     def get_network_list(self, nl):
         self.available_hosts = sorted(nl)
-        self.output_display.append("\n\nAvailable IP Addresses on network:\n")
+        self.output_display.append("\n\nActive IP Addresses on network:\n")
         for ip in self.available_hosts:
             self.output_display.append(ip)
 
@@ -1128,336 +1131,6 @@ class Window(QWidget):
                 self.show_info_color("green", "Sync Completed!", 8000)
             self.any_errors = False
             self.sync_button.setStyleSheet("font-size: 20px; color: black")
-
-
-class NetDiscovery(QRunnable):
-    def __init__(self):
-        QRunnable.__init__(self)
-        self.nm = nm.PortScanner()
-        # self.netdis = NetworkDiscovery()
-        self.signals = WorkerSignals()
-        self.hosts = []
-
-    def run(self):
-        self.nm.scan(hosts="192.168.0.1/24", arguments="-F")
-        for host in self.nm.all_hosts():
-            self.hosts.append(host)
-        """
-        self.netdis.scan()
-        for dev in self.netdis.discover():
-            print(dev, self.netdis.get_info(dev))
-        self.netdis.stop()
-        """
-        self.signals.network_list.emit(self.hosts)
-
-
-class OpenCmd(QRunnable):
-
-    def __init__(self, command):
-        QRunnable.__init__(self)
-        self.command = command
-        self.run()
-
-    def run(self):
-        abspath = os.path.abspath(__file__)
-        dir_name = os.path.dirname(abspath)
-        os.chdir(dir_name)
-        p = subprocess.Popen(self.command)
-        p.communicate()
-
-
-# object used for signals when finished to start printing to display
-class WorkerSignals(QObject):
-    finished = pyqtSignal(int, str, str)
-    # used to let show_user_info if any errors occured for coloring and feedback
-    sync_errors = pyqtSignal(bool)
-    display_finish = pyqtSignal(int)
-    network_list = pyqtSignal(list)
-
-
-# object for running the sync commands
-class SyncThatShit(QRunnable):
-    # all user input passed to it from main window ui
-    def __init__(self, header, command, options, user, dest_user, dest_ip, custom_local_dest_path,
-                 custom_local_source_path, custom_remote_dest_path, custom_remote_source_path, user_os, dest_os, ssh_path):
-        QRunnable.__init__(self)
-        self.header = header
-        self.command = command
-        self.options = options
-        self.delete = False
-        self.user = user
-        self.dest_user = dest_user
-        self.dest_ip = dest_ip
-        self.custom_local_dest_path = custom_local_dest_path
-        self.custom_local_source_path = custom_local_source_path
-        self.custom_remote_dest_path = custom_remote_dest_path
-        self.custom_remote_source_path = custom_remote_source_path
-        self.user_os = user_os
-        self.dest_os = dest_os
-        self.ssh_path = ssh_path
-        self.source_path = ""
-        self.dest_path = ""
-        self.destination = ""
-        self.output = ""
-        self.errors = ""
-        self.para_scp = False
-        self.signals = WorkerSignals()
-        self.sync_sort()
-
-    def run(self):
-        # self.proc = QProcess()
-        # self.proc_command = ""
-        try:  # used for remote options
-            self.destination = self.dest_user + "@" + self.dest_ip + ":" + self.dest_path
-
-            # command for local syncs
-            if self.header == 7:
-                if self.command == 'scp':
-                    self.options = '-rv'
-                    if (self.dest_os == "windows") or (self.user_os == "windows"):
-                        self.scp_copy()
-                    elif os.path.isfile(self.source_path):
-                        # self.proc_command = self.command + " " + self.source_path + " " + self.dest_path
-                        p = subprocess.Popen([self.command, self.source_path, self.dest_path],
-                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    else:
-                        # self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
-                        p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
-                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                else:
-                    # self.proc_command = self.command + " " + self.options + " " + self.source_path + " " + self.dest_path
-                    p = subprocess.Popen([self.command, self.options, self.source_path, self.dest_path],
-                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            # command for remote syncs
-            else:
-                if self.command == "rsync":
-                    if self.delete:
-                        # self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-                        #                                             " " + self.destination + " --delete"
-                        p = subprocess.Popen(
-                            [self.command, self.options, self.source_path, self.destination, "--delete"],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    else:
-                        # self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-                        #                                             " " + self.destination
-                        p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
-                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-                else:
-                    if (self.dest_os == "windows") or (self.user_os == "windows"):
-                        self.scp_copy()
-                    else:
-                        self.options = '-rv'
-                        # self.scp_copy()
-                        p = subprocess.Popen([self.command, self.options, self.source_path, self.destination],
-                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        # self.proc_command = self.command + " " + self.options + " " + self.source_path + \
-                        #                                             " " + self.destination
-
-            # # run the process wait for it to finish and store the output
-            # self.proc.start(self.proc_command)
-            # self.proc.waitForFinished()
-            # # self.proc.finished.emit()
-            # self.output = self.proc.readAllStandardOutput()
-            # self.errors = self.proc.readAllStandardError()
-            # self.proc.close()
-            # # get command output and errors for use to display in ui
-            # self.output = str(self.output, "utf-8")
-            # self.errors = str(self.errors, "utf-8")
-
-            # get scp output and then clean up scp output
-            if self.para_scp:
-                self.get_scp_output()
-            elif self.command == "scp":
-                self.output, self.errors = p.communicate()
-                self.output = self.output.decode()
-                self.errors = self.errors.decode()
-                self.get_scp_output()
-            else:
-                # get command output and errors for use to display in ui
-                self.output, self.errors = p.communicate()
-                self.output = self.output.decode()
-                self.errors = self.errors.decode()
-
-            # signal connected to print_sync, displaying the outputs of syncs
-            if self.errors != "":
-                self.signals.sync_errors.emit(True)
-            self.signals.finished.emit(self.header, self.output, self.errors)
-            self.signals.display_finish.emit(self.header)
-        # display stderr
-        except Exception as e:
-            err = "Ooops something went wrong there..." + "\n" + str(e)
-            self.signals.finished.emit(self.header, self.output, err)
-            self.signals.display_finish.emit(self.header)
-
-    def scp_copy(self):
-        self.para_scp = True
-        try:
-            client = paramiko.SSHClient()
-            client.load_system_host_keys(self.ssh_path + 'known_hosts')
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            pkey = paramiko.RSAKey.from_private_key_file(self.ssh_path + 'id_rsa')
-            client.connect(hostname=self.dest_ip, username=self.dest_user, pkey=pkey)
-            with SCPClient(client.get_transport()) as scp:
-                if os.path.isfile(self.source_path):
-                    scp.put(self.source_path, self.dest_path)
-                else:
-                    scp.put(self.source_path, remote_path=self.dest_path, recursive=True)
-
-            # scp.get(self.dest_path, self.source_path)
-            scp.close()
-            client.close()
-        except SCPException as e:
-            print(e)
-
-    # sets the paths of the sync depending on what sync option/header is used
-    def sync_sort(self):
-        sp = ""
-        dp = ""
-        # set the option/flag
-        if self.options == "d":  # default
-            self.options = "-Paiurv"
-        elif self.options == "c":  # compress
-            self.options = "-Paiurvz"
-        elif self.options == "del":  # delete destination dir before copying
-            self.options = "-Paiurv"
-            self.delete = True
-
-        # force scp if windows is involved
-        if self.dest_os == "windows":
-            if self.user_os != "windows":
-                self.command = "scp"
-
-        if self.user_os == "linux":
-            sp = "/home/" + self.user
-        elif self.user_os == "mac":
-            sp = "/Users/" + self.user
-        elif self.user_os == "windows":
-            sp = "C:/Users/" + self.user
-
-        if self.dest_os == "linux":
-            dp = "/home/" + self.dest_user
-        elif self.dest_os == "mac":
-            dp = "/Users/" + self.dest_user
-        elif self.dest_os == "windows":
-            dp = "C:/Users/" + self.dest_user
-
-        if self.header == 1:
-            self.source_path = sp + "/Desktop/"
-            self.dest_path = dp + "/Desktop/"
-        elif self.header == 2:
-            self.source_path = sp + "/Documents/"
-            self.dest_path = dp + "/Documents/"
-        elif self.header == 3:
-            self.source_path = sp + "/Downloads/"
-            self.dest_path = dp + "/Downloads/"
-        elif self.header == 4:
-            self.source_path = sp + "/Music/"
-            self.dest_path = dp + "/Music/"
-        elif self.header == 5:
-            self.source_path = sp + "/Pictures/"
-            self.dest_path = dp + "/Pictures/"
-        elif self.header == 6:
-            self.source_path = sp + "/Videos/"
-            self.dest_path = dp + "/Videos/"
-
-        # sets if self.option7 is ticked
-        if self.header == 7:
-            self.source_path = self.custom_local_source_path
-            self.dest_path = self.custom_local_dest_path
-
-        # sets if self.option8 is ticked
-        if self.header == 8:
-            self.source_path = self.custom_remote_source_path
-            self.dest_path = self.custom_remote_dest_path
-
-        # obsolete from cli version(will be updated to usuable option tho)
-        elif self.header == 14:
-            # self.source_path = "/Users/" + self.source + "/Desktop/films/"
-            # self.dest_path = "/User/Library/Artworks/*"
-            pass
-
-    # scp is weird with output so this frankenstein will have to do for now
-    def get_scp_output(self):
-        out_buff = ""
-        err_buff = ""
-        for line in self.errors.splitlines():
-            if line.startswith("Executing"):
-                out_buff += line + "\n"
-            elif line.startswith("OpenSSH"):
-                out_buff += line + "\n\n"
-            elif line.startswith("Entering"):
-                out_buff += line + "\n"
-            elif line.startswith("Sink"):
-                out_buff += line + "\n"
-            elif line.startswith("Sending"):
-                out_buff += line + "\n"
-            elif line.startswith("Transferred"):
-                out_buff += "\n" + line + "\n"
-            elif line.startswith("Bytes"):
-                out_buff += line
-            elif line.startswith("ssh"):
-                err_buff += line + "\n"
-            elif line.startswith("lost"):
-                err_buff += line + "\n"
-            else:
-                continue
-        self.output = out_buff
-        self.errors = err_buff
-
-
-# used for MyFileBrowser to return path through signal
-class BrowserSignal(QObject):
-    return_data = pyqtSignal(str)
-
-
-# class for opening/showing a file browser to choose path instead of typing it manually
-class MyFileBrowser(QWidget):
-
-    def __init__(self, os_type):
-        QWidget.__init__(self)
-        self.view = QTreeView()  # for displaying the FileSystemModel in a TreeView
-        self.sig = BrowserSignal()  # signal for passing data back to main window
-        self.setWindowTitle("Custom Path File Manager")
-        self.path = ""
-        self.get_path(os_type)
-        self.file_path = ""
-        self.model = QFileSystemModel()  # the file file system model creation
-        self.model.setRootPath(QDir.rootPath())  # we want to start from root
-        self.setGeometry(320, 200, 1000, 600)
-        self.view.setModel(self.model)  # puts the file system model into the tree view
-        self.view.setRootIndex(self.model.index(self.path))  # set the indexes
-        self.view.setSortingEnabled(True)  # give the option to sort on header click
-        self.view.setColumnWidth(0, 610)
-        self.view.sortByColumn(0, Qt.AscendingOrder)
-        self.open_button = QPushButton("Open", self)  # pushed when file path is chosen and sends signal
-        self.open_button.clicked.connect(self.return_path)
-        self.open_button.setFixedWidth(200)
-        self.open_button.setStyleSheet("background-color: blue; color: black")
-
-        self.v_box = QVBoxLayout()
-        self.v_box.addWidget(self.view)
-        self.v_box.addWidget(self.open_button, alignment=Qt.AlignCenter)
-        self.setLayout(self.v_box)
-        self.show()
-
-    def get_path(self, type_os):
-        if type_os == "linux":
-            self.path = "/"
-        elif type_os == "mac":
-            self.path = "/"
-        elif type_os == "windows":
-            self.path = "C:\\"
-        else:
-            print("Failed to set os root dir for FileSystemModel")
-
-    # when filepath is chosen and open button is pressed return path to correlating input box in main window and close
-    def return_path(self):
-        fp = self.view.selectedIndexes()[0]
-        self.file_path = self.model.filePath(fp)
-        self.sig.return_data.emit(self.file_path)
-        self.close()
 
 
 def main():
