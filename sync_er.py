@@ -7,18 +7,14 @@ from Crypto.PublicKey import RSA
 from functools import partial
 from getpass import getuser
 import netifaces as ni
-import subprocess
 import paramiko
-import socket
 import os
 import sys
 
 # My Internal Classes
-from MyFileBrowser import MyFileBrowser
-from SyncThatShit import SyncThatShit
-from WorkerSignals import WorkerSignals
-from NetDiscovery import NetDiscovery
-from OpenCmd import OpenCmd    # Don't think i use this anymore
+from My_Modules.MyFileBrowser import MyFileBrowser
+from My_Modules.SyncThatShit import SyncThatShit
+from My_Modules.NetDiscovery import NetDiscovery
 
 '''
 ###################################################################################################################
@@ -27,7 +23,7 @@ from OpenCmd import OpenCmd    # Don't think i use this anymore
 '''
 
 __author__ = "blaka90"
-__version__ = "0.8.4"
+__version__ = "0.8.5"
 
 
 # the main window
