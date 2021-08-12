@@ -933,7 +933,6 @@ class Window(QWidget):
         self.dest_user_input.setText("")
         self.dest_ip_input.setText("")
         self.dest_os_linux.setChecked(False)
-        self.dest_os_linux.show()
         self.dest_os_mac.setChecked(False)
         self.dest_os_windows.setChecked(False)
         self.sync_option1.setChecked(True)
