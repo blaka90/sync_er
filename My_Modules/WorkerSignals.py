@@ -8,3 +8,4 @@ class WorkerSignals(QObject):
     sync_errors = pyqtSignal(bool)
     display_finish = pyqtSignal(int)
     network_list = pyqtSignal(list)
+    colours = pyqtSignal(str)
