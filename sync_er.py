@@ -7,6 +7,7 @@ from Crypto.PublicKey import RSA
 from functools import partial
 from getpass import getuser
 from signal import SIGKILL
+from random import choice
 import netifaces as ni
 import paramiko
 import os
@@ -61,6 +62,8 @@ class Window(QWidget):
         self.append = False
         self.finish_er = []
         self.available_hosts = []
+        self.colour_state = False
+        self.colours = ["red", "green", "blue", "yellow", "orange", "purple", "pink", "black", "white", "brown"]
         # create pool for threads if multiple syncs in one go
         self.pool = QThreadPool()
         self.pool.setMaxThreadCount(8)
@@ -996,11 +999,25 @@ class Window(QWidget):
 
     def update_progress(self, switch):
         if switch:
-            self.movie.start()
-            self.loading_bar.show()
+            self.colour_state = True
+            self.cancel_button.setStyleSheet("font-size: 20px; background-color: red; color: black")
+            self.sync_button.setText("Sync_ing")
+            # self.show_info_color("white", "Syncing...", 1000000000)  # give the user feedback
+            # self.movie.start()      #REMOVE WHEN THIS IS COMPLETE
+            # self.loading_bar.show()      #REMOVE WHEN THIS IS COMPLETE
         else:
-            self.movie.stop()
-            self.loading_bar.hide()
+            self.colour_state = False
+            self.cancel_button.setStyleSheet("font-size: 20px; background-color: ; color: black")
+            self.sync_button.setText("Sync")
+            self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+            # self.movie.stop()      #REMOVE WHEN THIS IS COMPLETE
+            # self.loading_bar.hide()      #REMOVE WHEN THIS IS COMPLETE
+        self.colourize()
+
+    def colourize(self):
+        while self.colour_state:
+            self.sync_button.setStyleSheet("font-size: 20px; background-color: {}; color: black".format(choice(self.colours)))
+            QTest.qWait(500)
 
     # used to print to display what output is showing after sync is complete
     @pyqtSlot(int, str, str)  # DO I EVEN NEED THIS SINCE I CONNECT THE SIGNAL ANYWAY?
@@ -1080,8 +1097,6 @@ class Window(QWidget):
         for head in self.what_to_sync:
             self.finish_er.append(head)
 
-        self.show_info_color("white", "Syncing...", 1000000000)  # give the user feedback
-
         # loop through sync options ticked
         for h in self.what_to_sync:
             # local sync only, make sure custom paths have user input
@@ -1121,7 +1136,6 @@ class Window(QWidget):
         self.okay_to_sync()
         if self.start_sync:
             # if all user input is filled in start the sync
-            self.sync_button.setStyleSheet("font-size: 20px; background-color: red; color: black")
             self.update_progress(True)
 
             # creates the sync object, passing it all required input for sync
