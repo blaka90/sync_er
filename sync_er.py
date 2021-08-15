@@ -7,7 +7,6 @@ from Crypto.PublicKey import RSA
 from functools import partial
 from getpass import getuser
 from signal import SIGKILL
-from random import choice
 import netifaces as ni
 import paramiko
 import os
@@ -17,6 +16,7 @@ import sys
 from My_Modules.MyFileBrowser import MyFileBrowser
 from My_Modules.SyncThatShit import SyncThatShit
 from My_Modules.NetDiscovery import NetDiscovery
+from My_Modules.Colourize import Colourize
 
 '''
 ###################################################################################################################
@@ -25,7 +25,7 @@ from My_Modules.NetDiscovery import NetDiscovery
 '''
 
 __author__ = "blaka90"
-__version__ = "0.8.5"
+__version__ = "0.8.6"
 
 
 # the main window
@@ -62,8 +62,6 @@ class Window(QWidget):
         self.append = False
         self.finish_er = []
         self.available_hosts = []
-        self.colour_state = False
-        self.colours = ["red", "green", "blue", "yellow", "orange", "purple", "pink", "black", "white", "brown"]
         # create pool for threads if multiple syncs in one go
         self.pool = QThreadPool()
         self.pool.setMaxThreadCount(8)
@@ -370,8 +368,8 @@ class Window(QWidget):
         self.sync_button.clicked.connect(self.syncer)
         self.sync_button.setFixedWidth(250)
         self.sync_button.setFixedHeight(50)
-        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
-        # self.sync_button.setStyleSheet("font-size: 20px; color: black")
+        # self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+        self.sync_button.setStyleSheet("font-size: 20px; color: black")
 
         # Cancel Button, cancel the current rsync process
         self.cancel_button = QPushButton("Cancel", self)
@@ -927,23 +925,6 @@ class Window(QWidget):
             self.options = self.sync_option4_box.text()
         return self.options
 
-    def cancel_sync(self):
-        with open("resources/process_pids", "r") as f:
-            pids = f.readlines()
-            f.close()
-        for p in pids:
-            print(p)
-            try:
-                os.kill(int(p), SIGKILL)
-            except ProcessLookupError as e:
-                print("Process: {}\n{}".format(p, e))
-
-        self.fresh_pids()
-        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
-        self.update_progress(False)
-        self.show_info_color("green", "Successfully Cancelled Current Syncs", 3000)
-        self.cancelled = True
-
     # resets all settings and user input/options when clear setting button is pressed
     def clear_settings(self):
         self.output_display.setText("")
@@ -977,7 +958,7 @@ class Window(QWidget):
         self.custom_remote_source_path = ""
         self.custom_remote_dest_path = ""
         self.any_errors = False
-        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+        self.sync_button.setStyleSheet("font-size: 20px; color: black")
         if self.operating_system == "linux":
             self.rsync_button.setChecked(True)
             self.rsync_command()
@@ -997,27 +978,39 @@ class Window(QWidget):
     def was_there_errors(self, err):
         self.any_errors = err
 
+    def cancel_sync(self):
+        with open("resources/process_pids", "r") as f:
+            pids = f.readlines()
+            f.close()
+        for p in pids:
+            print(p)
+            try:
+                os.kill(int(p), SIGKILL)
+            except ProcessLookupError as e:
+                print("Process: {}\n{}".format(p, e))
+
+        self.fresh_pids()
+        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+        self.update_progress(False)
+        self.show_info_color("green", "Successfully Cancelled Current Syncs", 3000)
+        self.cancelled = True
+
+    def update_colour(self, colour):
+        self.sync_button.setStyleSheet("font-size: 20px; background-color: black; color: {}".format(colour))
+
     def update_progress(self, switch):
         if switch:
-            self.colour_state = True
             self.cancel_button.setStyleSheet("font-size: 20px; background-color: red; color: black")
             self.sync_button.setText("Sync_ing")
             # self.show_info_color("white", "Syncing...", 1000000000)  # give the user feedback
             # self.movie.start()      #REMOVE WHEN THIS IS COMPLETE
             # self.loading_bar.show()      #REMOVE WHEN THIS IS COMPLETE
         else:
-            self.colour_state = False
             self.cancel_button.setStyleSheet("font-size: 20px; background-color: ; color: black")
             self.sync_button.setText("Sync")
-            self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+            self.sync_button.setStyleSheet("font-size: 20px; color: black")
             # self.movie.stop()      #REMOVE WHEN THIS IS COMPLETE
             # self.loading_bar.hide()      #REMOVE WHEN THIS IS COMPLETE
-        self.colourize()
-
-    def colourize(self):
-        while self.colour_state:
-            self.sync_button.setStyleSheet("font-size: 20px; background-color: {}; color: black".format(choice(self.colours)))
-            QTest.qWait(500)
 
     # used to print to display what output is showing after sync is complete
     @pyqtSlot(int, str, str)  # DO I EVEN NEED THIS SINCE I CONNECT THE SIGNAL ANYWAY?
@@ -1149,11 +1142,18 @@ class Window(QWidget):
             self.worker.signals.finished.connect(self.print_sync)
             # signal to show all syncing's are complete
             self.worker.signals.display_finish.connect(self.sync_complete)
+            # signal for changing the sync button colour
+            self.colourizer = Colourize()
+            self.colourizer.signals.colours.connect(self.update_colour)
+            self.pool.start(self.colourizer)
             # start the thread/sync
             self.pool.start(self.worker)
 
+
     # wait for all syncs to complete
     def sync_complete(self, head):
+        self.colourizer.signals.blockSignals(True)
+        self.pool.clear()
         if self.cancelled:
             pass
         else:
@@ -1167,6 +1167,7 @@ class Window(QWidget):
                     self.show_info_color("green", "Sync Completed!", 8000)
                 self.any_errors = False
                 self.sync_button.setStyleSheet("font-size: 20px; color: black")
+
 
 
 def main():
