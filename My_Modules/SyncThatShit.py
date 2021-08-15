@@ -97,6 +97,10 @@ class SyncThatShit(QRunnable):
             # self.output = str(self.output, "utf-8")
             # self.errors = str(self.errors, "utf-8")
 
+            with open("resources/process_pids", "a") as f:
+                f.write(str(p.pid) + "\n")
+                f.close()
+
             # get scp output and then clean up scp output
             if self.para_scp:
                 self.get_scp_output()
