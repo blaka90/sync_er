@@ -6,6 +6,7 @@ from PyQt5.QtGui import *
 from Crypto.PublicKey import RSA
 from functools import partial
 from getpass import getuser
+from signal import SIGKILL
 import netifaces as ni
 import paramiko
 import os
@@ -30,6 +31,8 @@ __version__ = "0.8.5"
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
+        self.fresh_pids()
+        self.cancelled = False
         self.user_ip = ""
         self.get_local_ip()
         self.path()
@@ -85,6 +88,14 @@ class Window(QWidget):
         qApp.setPalette(dark_palette)
         qApp.setStyleSheet("QToolTip { color: #ffffff; background-color: "
                            "#2a82da; border: 1px solid white; }")
+
+    def fresh_pids(self):
+        with open("resources/parent_pid", "w") as f:
+            f.write(str(os.getpid()))
+            f.close()
+        with open("resources/process_pids", "w") as p:
+            p.write("")
+            p.close()
 
     @staticmethod
     def path():  # change into current working dirctory wherever program is ran from
@@ -229,22 +240,6 @@ class Window(QWidget):
         # self.dest_ip_input.setText("192.168.0.")  # I'm lazy      ----may remove this coz find button
         self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
-        """
-        # experimental lazy way of getting saved ip's
-        self.find_dest_info_button = QPushButton("Find")
-        self.find_dest_info_button.setFixedWidth(80)
-        self.find_dest_info_button.setFixedHeight(30)
-        self.find_dest_info_button.clicked.connect(self.find_ips)
-        # self.find_dest_info_button.setStyleSheet("background-color: blue; color: black")
-
-        # easier way of getting saved ip's
-        self.get_added_button = QPushButton("choose")
-        self.get_added_button.setFixedWidth(80)
-        self.get_added_button.setFixedHeight(30)
-        self.get_added_button.clicked.connect(self.get_added_user)
-        # self.get_added_button.setStyleSheet("background-color: blue; color: black")
-        """
-
         # get the os type of destination and later try change path accordingly
         self.dest_os_label = QLabel(self)
         self.dest_os_label.setText("Destination OS:")
@@ -372,13 +367,22 @@ class Window(QWidget):
         self.sync_button.clicked.connect(self.syncer)
         self.sync_button.setFixedWidth(250)
         self.sync_button.setFixedHeight(50)
-        self.sync_button.setStyleSheet("font-size: 20px; color: black")
+        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+        # self.sync_button.setStyleSheet("font-size: 20px; color: black")
+
+        # Cancel Button, cancel the current rsync process
+        self.cancel_button = QPushButton("Cancel", self)
+        self.cancel_button.setFixedWidth(80)
+        self.cancel_button.setFixedHeight(50)
+        self.cancel_button.clicked.connect(self.cancel_sync)
+
         # button to clear all user input
         self.clear_settings_button = QPushButton("Clear Settings", self)
         self.clear_settings_button.clicked.connect(self.clear_settings)
         self.clear_settings_button.setFixedWidth(150)
         self.clear_settings_button.setFixedHeight(30)
         # self.clear_settings_button.setStyleSheet("background-color: blue; color: black")
+
         # button to clear the display  only
         self.clear_display_button = QPushButton("Clear Display", self)
         self.clear_display_button.clicked.connect(self.clear_display)
@@ -419,9 +423,8 @@ class Window(QWidget):
         h_box_buttons = QHBoxLayout()
         h_box_buttons.setContentsMargins(100, 20, 20, 20)
         h_box_buttons.addWidget(self.sync_button)
+        h_box_buttons.addWidget(self.cancel_button)
         h_box_buttons.addLayout(clear_buttons)
-        # h_box_buttons.addWidget(self.clear_settings_button)
-        # h_box_buttons.addWidget(self.clear_display_button)
 
         # horizontal layout for os radio buttons inside destination_grid layout
         h_box_os_buttons = QHBoxLayout()
@@ -437,11 +440,8 @@ class Window(QWidget):
         destination_grid.setContentsMargins(30, 10, 10, 30)
         destination_grid.addWidget(self.dest_user_label, 0, 0)
         destination_grid.addWidget(self.dest_user_input, 0, 1)
-        # destination_grid.addWidget(self.find_dest_info_button, 0, 2)
-        # destination_grid.addWidget(self.prev_paired_label, 0, 2)
         destination_grid.addWidget(self.dest_ip_label, 1, 0)
         destination_grid.addWidget(self.dest_ip_input, 1, 1)
-        # destination_grid.addWidget(self.get_added_button, 1, 2)
         destination_grid.addWidget(self.avail_user_box, 0, 2)
         destination_grid.addWidget(self.dest_os_label, 2, 0)
         destination_grid.addLayout(h_box_os_buttons, 2, 1)
@@ -481,7 +481,6 @@ class Window(QWidget):
         v_box_left.addLayout(top_row1)
         v_box_left.addLayout(top_row2)
         v_box_left.addSpacing(10)
-        # v_box_left.addWidget(self.system_label_dest)
         v_box_left.addLayout(top_row3)
         v_box_left.addLayout(destination_grid)
         v_box_left.addWidget(self.system_label_flag_options)
@@ -489,14 +488,12 @@ class Window(QWidget):
         v_box_left.addWidget(self.system_label_sync_options)
         v_box_left.addLayout(sync_options_grid)
         v_box_left.addStretch(1)
-        # v_box_left.addWidget(self.show_user_info)
         v_box_left.addWidget(self.loading_bar)
         v_box_left.addLayout(h_box_buttons)
 
         # vertical layout for output_display and progressbar
         v_box_right = QVBoxLayout()
         v_box_right.addWidget(self.output_display)
-        # v_box_right.addWidget(self.loading_bar)
 
         # horizontal layout to split user input on left and display on right
         h_box = QHBoxLayout()
@@ -927,6 +924,23 @@ class Window(QWidget):
             self.options = self.sync_option4_box.text()
         return self.options
 
+    def cancel_sync(self):
+        with open("resources/process_pids", "r") as f:
+            pids = f.readlines()
+            f.close()
+        for p in pids:
+            print(p)
+            try:
+                os.kill(int(p), SIGKILL)
+            except ProcessLookupError as e:
+                print("Process: {}\n{}".format(p, e))
+
+        self.fresh_pids()
+        self.sync_button.setStyleSheet("font-size: 20px; background-color: green; color: black")
+        self.update_progress(False)
+        self.show_info_color("green", "Successfully Cancelled Current Syncs", 3000)
+        self.cancelled = True
+
     # resets all settings and user input/options when clear setting button is pressed
     def clear_settings(self):
         self.output_display.setText("")
@@ -991,35 +1005,38 @@ class Window(QWidget):
     # used to print to display what output is showing after sync is complete
     @pyqtSlot(int, str, str)  # DO I EVEN NEED THIS SINCE I CONNECT THE SIGNAL ANYWAY?
     def print_sync(self, header, output, errors):
-        # show what sync option/header was used for corresponding output and then display it
-        headers = {
-            1: "Desktop", 2: "Documents", 3: "Downloads", 4: "Music", 5: "Pictures", 6: "Videos",
-            7: "Custom Local Paths", 8: "Custom Remote Paths"}
-        # if only 1 sync option is getting used this will run
-        if self.output_display.toPlainText() == "":
-            if len(errors) != 0:
-                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
-                                            + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
-                                            + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
-
-            else:
-                self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
-                                            + " sync" + "\n" + "#" * 77 + "\n\n" + output)
-
-        # if multiple syncs are getting run it will append the ouputs together for display
+        if self.cancelled:
+            pass
         else:
-            if len(errors) != 0:
-                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
-                                           + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
-                                           + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
+            # show what sync option/header was used for corresponding output and then display it
+            headers = {
+                1: "Desktop", 2: "Documents", 3: "Downloads", 4: "Music", 5: "Pictures", 6: "Videos",
+                7: "Custom Local Paths", 8: "Custom Remote Paths"}
+            # if only 1 sync option is getting used this will run
+            if self.output_display.toPlainText() == "":
+                if len(errors) != 0:
+                    self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                                + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+                                                + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
+                else:
+                    self.output_display.setText("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                                + " sync" + "\n" + "#" * 77 + "\n\n" + output)
+
+            # if multiple syncs are getting run it will append the ouputs together for display
             else:
-                self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
-                                           + " sync" + "\n" + "#" * 77 + "\n\n" + output)
+                if len(errors) != 0:
+                    self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                               + " sync" + "\n" + "#" * 77 + "\n\n" + output + "\n\n" + "~" * 91 + "\n"
+                                               + " " * 100 + "ERRORS" + "\n" + "~" * 91 + "\n\n" + errors)
 
-        self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
+                else:
+                    self.output_display.append("#" * 77 + "\n" + " " * 60 + "Showing output for " + headers[header]
+                                               + " sync" + "\n" + "#" * 77 + "\n\n" + output)
 
-        self.update()
+            self.output_display.verticalScrollBar().setValue(self.output_display.verticalScrollBar().maximum())
+
+            self.update()
 
     # grab all the information from user inputs needed for the sync
     def get_sync_info(self):
@@ -1046,8 +1063,7 @@ class Window(QWidget):
             self.custom_local_source_and_dest_okay = True
         self.update()
 
-    # called when the sync button is pressed
-    def syncer(self):
+    def okay_to_sync(self):
         # make sure user has ticked atleast 1 of the sync options, return if not
         if not self.what_to_sync:
             self.show_info_color("red", "Please choose options to begin syncing", 3000)
@@ -1095,13 +1111,21 @@ class Window(QWidget):
                 if self.dest_operating_system == "":
                     self.show_info_color("red", "Please choose Destination Operating System type", 3000)
                     return
+        self.h = h
+        self.start_sync = True
 
+    # called when the sync button is pressed
+    def syncer(self):
+        self.start_sync = False
+        self.cancelled = False
+        self.okay_to_sync()
+        if self.start_sync:
             # if all user input is filled in start the sync
             self.sync_button.setStyleSheet("font-size: 20px; background-color: red; color: black")
             self.update_progress(True)
 
             # creates the sync object, passing it all required input for sync
-            self.worker = SyncThatShit(h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
+            self.worker = SyncThatShit(self.h, self.command, self.options, self.user, self.dest_user, self.dest_ip,
                                        self.custom_local_dest_path, self.custom_local_source_path,
                                        self.custom_remote_dest_path, self.custom_remote_source_path,
                                        self.operating_system, self.dest_operating_system, self.ssh_path)
@@ -1116,16 +1140,19 @@ class Window(QWidget):
 
     # wait for all syncs to complete
     def sync_complete(self, head):
-        self.hide_op.setChecked(False)
-        self.finish_er.remove(head)
-        if not self.finish_er:
-            self.update_progress(False)
-            if self.any_errors:
-                self.show_info_color("yellow", "Sync Completed!\tBut...\r Errors have occured!", 8000)
-            else:
-                self.show_info_color("green", "Sync Completed!", 8000)
-            self.any_errors = False
-            self.sync_button.setStyleSheet("font-size: 20px; color: black")
+        if self.cancelled:
+            pass
+        else:
+            self.hide_op.setChecked(False)
+            self.finish_er.remove(head)
+            if not self.finish_er:
+                self.update_progress(False)
+                if self.any_errors:
+                    self.show_info_color("yellow", "Sync Completed!\tBut...\r Errors have occured!", 8000)
+                else:
+                    self.show_info_color("green", "Sync Completed!", 8000)
+                self.any_errors = False
+                self.sync_button.setStyleSheet("font-size: 20px; color: black")
 
 
 def main():
