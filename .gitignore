@@ -6,3 +6,5 @@ __pycache__
 syncer_keygen.txt
 output_display.jpeg
 TODO.txt
+resources/parent_pid
+resources/process_pids
