@@ -32,11 +32,11 @@ __version__ = "0.8.6"
 class Window(QWidget):
     def __init__(self):
         super(Window, self).__init__()
-        self.fresh_pids()
         self.cancelled = False
         self.user_ip = ""
         self.get_local_ip()
         self.path()
+        self.fresh_pids()
         self.start_style()
         self.user = getuser()
         self.host_name = os.uname()[1]
