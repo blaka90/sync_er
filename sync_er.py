@@ -90,7 +90,8 @@ class Window(QWidget):
         qApp.setStyleSheet("QToolTip { color: #ffffff; background-color: "
                            "#2a82da; border: 1px solid white; }")
 
-    def fresh_pids(self):
+    @staticmethod
+    def fresh_pids():
         with open("resources/parent_pid", "w") as f:
             f.write(str(os.getpid()))
             f.close()
@@ -134,6 +135,41 @@ class Window(QWidget):
     def show_info_color(self, color, message, time):
         self.statusbar.setStyleSheet("color:" + color)
         self.statusbar.showMessage(message, time)
+
+    # checks if user has generated ssh keygen before and shows button to generate if not
+    def has_ssh_keygen(self):
+        if self.operating_system == "linux":
+            self.ssh_path = "/home/{}/.ssh/".format(self.user)
+        elif self.operating_system == "mac:":
+            self.ssh_path = "/Users/{}/.ssh/".format(self.user)
+        elif self.operating_system == "windows":
+            self.ssh_path = "C:/Users/{}/.ssh/".format(self.user)
+        else:
+            print("Failed to set ssh path")
+        if os.path.exists(self.ssh_path):
+            if os.path.isfile(self.ssh_path + "id_rsa"):
+                if os.path.isfile("resources/syncer_keygen.txt"):
+                    self.try_passphrase = False
+                else:
+                    self.try_passphrase = True
+                return True
+            else:
+                self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
+                                               "to get started!", 15000)
+                return False
+        else:
+            os.mkdir(self.ssh_path, 0o700)
+            self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
+                                           "to get started!", 15000)
+            return False
+
+    def hide_output(self, state):
+        if state == Qt.Checked:
+            self.output_display.hide()
+            self.setFixedSize(644, 800)
+        else:
+            self.output_display.show()
+            self.setFixedSize(1450, 800)
 
     # initilize the user interface
     def init_ui(self):
@@ -520,41 +556,6 @@ class Window(QWidget):
         # set the layout
         self.setLayout(v)
 
-    def hide_output(self, state):
-        if state == Qt.Checked:
-            self.output_display.hide()
-            self.setFixedSize(644, 800)
-        else:
-            self.output_display.show()
-            self.setFixedSize(1450, 800)
-
-    # checks if user has generated ssh keygen before and shows button to generate if not
-    def has_ssh_keygen(self):
-        if self.operating_system == "linux":
-            self.ssh_path = "/home/{}/.ssh/".format(self.user)
-        elif self.operating_system == "mac:":
-            self.ssh_path = "/Users/{}/.ssh/".format(self.user)
-        elif self.operating_system == "windows":
-            self.ssh_path = "C:/Users/{}/.ssh/".format(self.user)
-        else:
-            print("Failed to set ssh path")
-        if os.path.exists(self.ssh_path):
-            if os.path.isfile(self.ssh_path + "id_rsa"):
-                if os.path.isfile("resources/syncer_keygen.txt"):
-                    self.try_passphrase = False
-                else:
-                    self.try_passphrase = True
-                return True
-            else:
-                self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
-                                               "to get started!", 15000)
-                return False
-        else:
-            os.mkdir(self.ssh_path, 0o700)
-            self.show_info_color("yellow", "It appears this is you're first run...Click 'Generate SSH Keygen' "
-                                           "to get started!", 15000)
-            return False
-
     def check_for_saved_ips(self):
         if not os.path.isfile("resources/" + self.host_name + "_saved_ips.txt"):
             with open("resources/" + self.host_name + "_saved_ips.txt", "w") as f:
@@ -587,21 +588,7 @@ class Window(QWidget):
 
         self.show_info_color("yellow", "Trying to save User data", 10000)
 
-    def run_add_user(self):
-        self.check_for_saved_ips()
-        self.get_sync_info()
-        self.run_checks()
-
-        to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
-
-        ask_pass, ok_pressed = QInputDialog.getText(self, "Adding New User", "Destination Password: ",
-                                                    QLineEdit.Password, "")
-        if ok_pressed:
-            pex_pass = ask_pass
-        else:
-            self.show_info_color("red", "Adding New User Cancelled!", 5000)
-            return
-
+    def return_ssh_path(self):
         if self.dest_operating_system == "linux":
             dest_ssh_path = "/home/{}/.ssh/".format(self.dest_user)
         elif self.dest_operating_system == "mac:":
@@ -609,20 +596,36 @@ class Window(QWidget):
         elif self.dest_operating_system == "windows":
             dest_ssh_path = "C:/Users/{}/.ssh/".format(self.dest_user)
         else:
-            self.show_info_color("darkred", "Failed to gather data", 5000)
+            self.show_info_color("darkred", "Failed to gather .ssh data", 5000)
             return
+        return dest_ssh_path
+
+    def ask_for_password(self):
+        ask_pass, ok_pressed = QInputDialog.getText(self, "Adding New User", "Destination Password: ",
+                                                    QLineEdit.Password, "")
+        if ok_pressed:
+            return ask_pass
+        else:
+            self.show_info_color("red", "Adding New User Cancelled!", 5000)
+            return
+
+    def run_add_user(self):
+        self.check_for_saved_ips()
+        self.get_sync_info()
+        self.run_checks()
+        pex_pass = self.ask_for_password()
 
         path_pub = self.ssh_path + "id_rsa.pub"
         path_priv = self.ssh_path + "id_rsa"
         known_hosts = self.ssh_path + "known_hosts"
-        auth_keys = dest_ssh_path + "authorized_keys"
+        auth_keys = self.return_ssh_path() + "authorized_keys"
 
         if not os.path.isfile(known_hosts):
             f = open(known_hosts, "a+")
             f.close()
             os.chmod(known_hosts, 0o644)
         else:
-            self.r_known_hosts(known_hosts)
+            self.update_known_hosts(known_hosts)
 
         key = open(os.path.expanduser(path_pub)).read()
         shell = paramiko.SSHClient()
@@ -642,7 +645,6 @@ class Window(QWidget):
                                       pkey=pkey, passphrase=passphrase)
                 else:
                     shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass, pkey=pkey)
-
             else:
                 shell.connect(self.dest_ip, username=self.dest_user, password=pex_pass)
             shell.exec_command('mkdir -p {}'.format(self.ssh_path))
@@ -655,7 +657,10 @@ class Window(QWidget):
         except paramiko.ssh_exception.NoValidConnectionsError as e:
             print(str(e))
             self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
+        self.update_saved_ips()
 
+    def update_saved_ips(self):
+        to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
         if self.append:
             with open("resources/" + self.host_name + "_saved_ips.txt", "a+") as f:
                 f.write(to_save)
@@ -677,7 +682,7 @@ class Window(QWidget):
                 f.close()
                 self.show_info_color("green", "Updated saved user data!", 5000)
 
-    def r_known_hosts(self, kh):
+    def update_known_hosts(self, kh):
         ip = ""
         with open("resources/" + self.host_name + "_saved_ips.txt", "r") as f:
             fr = f.readlines()
@@ -843,7 +848,6 @@ class Window(QWidget):
             elif custom_path == "remote_dest":
                 new_data = data.replace(self.user, self.dest_user_input.text())
                 self.custom_remote_path_dst.setText(new_data)
-
         else:
             ndata = data + "/"
             if custom_path == "local_source":
