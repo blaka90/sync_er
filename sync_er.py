@@ -202,16 +202,10 @@ class Window(QWidget):
         """left side of gui"""
 
         # label for showing the users username
-        self.user_label = QLabel(self)
-        self.user_label.setText("Username: " + self.user)
-        self.user_label.setAlignment(Qt.AlignTop)
-        self.user_label.setStyleSheet('color: black')
-
-        # label for showing the users IP Address
-        self.user_ip_label = QLabel(self)
-        self.user_ip_label.setText("IP Address: " + self.user_ip)
-        self.user_ip_label.setAlignment(Qt.AlignTop)
-        self.user_ip_label.setStyleSheet('color: black')
+        self.user_and_ip_label = QLabel(self)
+        self.user_and_ip_label.setText("Username: " + self.user + "\n" + "IP Address: " + self.user_ip)
+        self.user_and_ip_label.setAlignment(Qt.AlignTop)
+        self.user_and_ip_label.setStyleSheet('color: black')
 
         # button for changing command to rsync (default)
         self.rsync_button = QPushButton("Rsync")
@@ -233,25 +227,20 @@ class Window(QWidget):
         self.hide_op.setFixedWidth(120)
         self.hide_op.setStyleSheet("color: black")
 
-        # label for section Destination options
-        self.system_label_dest = QLabel(self)
-        self.system_label_dest.setText("Destination Options")
-        self.system_label_dest.setStyleSheet("color: gray")
-        self.system_label_dest.setAlignment(Qt.AlignCenter)
-
         # label for destination username
         self.dest_user_label = QLabel(self)
         self.dest_user_label.setText("Destination Username:")
 
         # user input box for the destination username
         self.dest_user_input = QLineEdit(self)
-        self.dest_user_input.setFixedWidth(220)
+        self.dest_user_input.setFixedWidth(200)
+        self.dest_user_input.setFixedHeight(30)
         self.dest_user_input.setPlaceholderText("Username of other computer")
 
         # connected users available
         self.avail_user_box = QListWidget()
-        self.avail_user_box.setFixedHeight(70)
-        self.avail_user_box.setFixedWidth(150)
+        self.avail_user_box.setFixedHeight(130)
+        self.avail_user_box.setFixedWidth(120)
         num = 0
         for h in self.avail_user_box_list:
             self.avail_user_box.insertItem(num, h)
@@ -273,8 +262,8 @@ class Window(QWidget):
 
         # user input box for destination ip address
         self.dest_ip_input = QLineEdit(self)
-        self.dest_ip_input.setFixedWidth(220)
-        # self.dest_ip_input.setText("192.168.0.")  # I'm lazy      ----may remove this coz find button
+        self.dest_ip_input.setFixedWidth(200)
+        self.dest_ip_input.setFixedHeight(30)
         self.dest_ip_input.setPlaceholderText("eg. 192.168.0.11")
 
         # get the os type of destination and later try change path accordingly
@@ -434,57 +423,32 @@ class Window(QWidget):
 
         # layout for left top row
         top_row1 = QHBoxLayout()
-        top_row1.addWidget(self.user_label)
+        top_row1.addWidget(self.user_and_ip_label)
+        top_row1.addWidget(self.blank_holder)
         top_row1.addWidget(self.rsync_button)
         top_row1.addWidget(self.scp_button)
-
-        top_row2 = QHBoxLayout()
-        top_row2.addWidget(self.user_ip_label)
-        # top_row2.setAlignment(Qt.AlignRight)
-        top_row2.addWidget(self.hide_op)
-
-        top_row3 = QHBoxLayout()
-        top_row3.addWidget(self.blank_holder)
-        top_row3.addSpacing(80)
-        top_row3.addWidget(self.system_label_dest)
-        top_row3.addSpacing(90)
-        top_row3.addWidget(self.prev_paired_label)
-
-        # ride side of bottom buttons
-        clear_buttons = QVBoxLayout()
-        clear_buttons.addWidget(self.clear_display_button)
-        clear_buttons.addWidget(self.clear_settings_button)
-        clear_buttons.setAlignment(Qt.AlignRight)
-
-        # horizontal layout for buttons at bottom of ui
-        h_box_buttons = QHBoxLayout()
-        h_box_buttons.setContentsMargins(100, 20, 20, 20)
-        h_box_buttons.addWidget(self.sync_button)
-        h_box_buttons.addWidget(self.cancel_button)
-        h_box_buttons.addLayout(clear_buttons)
-
-        # horizontal layout for os radio buttons inside destination_grid layout
-        h_box_os_buttons = QHBoxLayout()
-        # h_box_os_buttons.setContentsMargins(50, 0, 0, 0)
-        h_box_os_buttons.addWidget(self.dest_os_linux)
-        h_box_os_buttons.addWidget(self.dest_os_windows)
-        h_box_os_buttons.addWidget(self.dest_os_mac)
+        top_row1.addWidget(self.blank_holder)
+        top_row1.addWidget(self.hide_op)
 
         # destination_grid layout for most of the user input and options
         destination_grid = QGridLayout()
         destination_grid.setSpacing(20)
-        destination_grid.setAlignment(Qt.AlignTop)
-        destination_grid.setContentsMargins(30, 10, 10, 30)
+        destination_grid.setAlignment(Qt.AlignCenter)
+        destination_grid.setContentsMargins(50, 30, 50, 30)
         destination_grid.addWidget(self.dest_user_label, 0, 0)
-        destination_grid.addWidget(self.dest_user_input, 0, 1)
-        destination_grid.addWidget(self.dest_ip_label, 1, 0)
-        destination_grid.addWidget(self.dest_ip_input, 1, 1)
-        destination_grid.addWidget(self.avail_user_box, 0, 2)
-        destination_grid.addWidget(self.dest_os_label, 2, 0)
-        destination_grid.addLayout(h_box_os_buttons, 2, 1)
+        destination_grid.addWidget(self.dest_os_label, 0, 1)
+        destination_grid.addWidget(self.prev_paired_label, 0, 2)
+        destination_grid.addWidget(self.dest_user_input, 1, 0)
+        destination_grid.addWidget(self.dest_os_linux, 1, 1)
+        destination_grid.addWidget(self.avail_user_box, 1, 2)
+        destination_grid.addWidget(self.dest_ip_label, 2, 0)
+        destination_grid.addWidget(self.dest_os_windows, 2, 1)
+        destination_grid.addWidget(self.dest_ip_input, 3, 0)
+        destination_grid.addWidget(self.dest_os_mac, 3, 1)
+        destination_grid.addWidget(self.add_user, 4, 0)
         if not self.has_ssh_keygen():
-            destination_grid.addWidget(self.gen_ssh_keys_button, 3, 0)
-        destination_grid.addWidget(self.add_user, 3, 1)
+            destination_grid.addWidget(self.gen_ssh_keys_button, 4, 1)
+
 
         flag_options_grid = QGridLayout()
         flag_options_grid.setContentsMargins(50, 10, 50, 20)
@@ -513,12 +477,24 @@ class Window(QWidget):
         sync_options_grid.addWidget(self.custom_remote_path_dst, 6, 2)
         sync_options_grid.addWidget(self.custom_remote_path_dst_button, 6, 3)
 
+        # ride side of bottom buttons
+        clear_buttons = QVBoxLayout()
+        clear_buttons.addWidget(self.clear_display_button)
+        clear_buttons.addWidget(self.clear_settings_button)
+        clear_buttons.setAlignment(Qt.AlignRight)
+
+        # horizontal layout for buttons at bottom of ui
+        h_box_buttons = QHBoxLayout()
+        h_box_buttons.setContentsMargins(100, 20, 20, 20)
+        h_box_buttons.addWidget(self.sync_button)
+        h_box_buttons.addWidget(self.cancel_button)
+        h_box_buttons.addLayout(clear_buttons)
+
         # layout for the left hand side of ui layouts
         v_box_left = QVBoxLayout()
         v_box_left.addLayout(top_row1)
-        v_box_left.addLayout(top_row2)
         v_box_left.addSpacing(10)
-        v_box_left.addLayout(top_row3)
+        #v_box_left.addLayout(top_row3)
         v_box_left.addLayout(destination_grid)
         v_box_left.addWidget(self.system_label_flag_options)
         v_box_left.addLayout(flag_options_grid)
