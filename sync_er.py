@@ -227,6 +227,11 @@ class Window(QWidget):
         self.hide_op.setFixedWidth(120)
         self.hide_op.setStyleSheet("color: black")
 
+        # Label for host options section
+        self.host_label = QLabel(self)
+        self.host_label.setText("Host Options")
+        self.host_label.setStyleSheet("color: gray")
+
         # label for destination username
         self.dest_user_label = QLabel(self)
         self.dest_user_label.setText("Destination Username:")
@@ -239,7 +244,7 @@ class Window(QWidget):
 
         # connected users available
         self.avail_user_box = QListWidget()
-        self.avail_user_box.setFixedHeight(130)
+        self.avail_user_box.setFixedHeight(120)
         self.avail_user_box.setFixedWidth(120)
         num = 0
         for h in self.avail_user_box_list:
@@ -251,7 +256,7 @@ class Window(QWidget):
         # Label for available users
         self.prev_paired_label = QLabel(self)
         self.prev_paired_label.setText("Previously Paired:")
-        self.prev_paired_label.setStyleSheet("color: gray")
+        #self.prev_paired_label.setStyleSheet("color: gray")
 
         # Blank space
         self.blank_holder = QLabel(self)
@@ -332,9 +337,9 @@ class Window(QWidget):
         self.option5.stateChanged.connect(partial(self.get_header, header=5))
         self.option6 = QCheckBox("  Videos", self)
         self.option6.stateChanged.connect(partial(self.get_header, header=6))
-        self.option7 = QCheckBox("  Custom Local Paths", self)
+        self.option7 = QCheckBox("  Custom Local Sync", self)
         self.option7.stateChanged.connect(partial(self.get_header, header=7))
-        self.option8 = QCheckBox("  Custom Remote Paths", self)
+        self.option8 = QCheckBox("  Custom Remote Sync", self)
         self.option8.stateChanged.connect(partial(self.get_header, header=8))
 
         # user input box for the source of local syncs
@@ -384,6 +389,10 @@ class Window(QWidget):
         self.custom_remote_path_dst_button.clicked.connect(partial(self.get_browser, custom_path="remote_dest"))
         #self.custom_remote_path_dst_button.setDisabled(True)
 
+        # Tab widget for showing custom path boxes
+        self.custom_sync_tab = QTabWidget()
+        #self.custom_sync_tab.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Ignored)
+
         # label used to show the user some feedback in many instances
         self.show_user_info = QLabel(self)
         self.show_user_info.setAlignment(Qt.AlignCenter)
@@ -409,7 +418,7 @@ class Window(QWidget):
         self.clear_settings_button.setFixedHeight(30)
         # self.clear_settings_button.setStyleSheet("background-color: blue; color: black")
 
-        # button to clear the display  only
+        # button to clear the display only
         self.clear_display_button = QPushButton("Clear Display", self)
         self.clear_display_button.clicked.connect(self.clear_display)
         self.clear_display_button.setFixedWidth(150)
@@ -432,20 +441,22 @@ class Window(QWidget):
 
         # destination_grid layout for most of the user input and options
         destination_grid = QGridLayout()
-        destination_grid.setSpacing(20)
+        destination_grid.setSpacing(10)
+        destination_grid.setHorizontalSpacing(60)
         destination_grid.setAlignment(Qt.AlignCenter)
-        destination_grid.setContentsMargins(50, 30, 50, 30)
-        destination_grid.addWidget(self.dest_user_label, 0, 0)
-        destination_grid.addWidget(self.dest_os_label, 0, 1)
-        destination_grid.addWidget(self.prev_paired_label, 0, 2)
-        destination_grid.addWidget(self.dest_user_input, 1, 0)
-        destination_grid.addWidget(self.dest_os_linux, 1, 1)
-        destination_grid.addWidget(self.avail_user_box, 1, 2)
-        destination_grid.addWidget(self.dest_ip_label, 2, 0)
-        destination_grid.addWidget(self.dest_os_windows, 2, 1)
-        destination_grid.addWidget(self.dest_ip_input, 3, 0)
-        destination_grid.addWidget(self.dest_os_mac, 3, 1)
-        destination_grid.addWidget(self.add_user, 4, 0)
+        destination_grid.setContentsMargins(30, 10, 30, 20)
+        destination_grid.addWidget(self.host_label, 0, 1)
+        destination_grid.addWidget(self.dest_user_label, 1, 0)
+        destination_grid.addWidget(self.dest_os_label, 1, 1)
+        destination_grid.addWidget(self.prev_paired_label, 1, 2)
+        destination_grid.addWidget(self.dest_user_input, 2, 0)
+        destination_grid.addWidget(self.dest_os_linux, 2, 1)
+        destination_grid.addWidget(self.avail_user_box, 2, 2, 5, 2)
+        destination_grid.addWidget(self.dest_ip_label, 3, 0)
+        destination_grid.addWidget(self.dest_os_windows, 3, 1)
+        destination_grid.addWidget(self.dest_ip_input, 4, 0)
+        destination_grid.addWidget(self.dest_os_mac, 4, 1)
+        destination_grid.addWidget(self.add_user, 5, 0)
         if not self.has_ssh_keygen():
             destination_grid.addWidget(self.gen_ssh_keys_button, 4, 1)
 
@@ -459,23 +470,41 @@ class Window(QWidget):
         flag_options_grid.addWidget(self.sync_option4_input, 1, 3)
 
         sync_options_grid = QGridLayout()
-        sync_options_grid.setContentsMargins(0, 10, 0, 10)
         sync_options_grid.addWidget(self.option1, 0, 0)
         sync_options_grid.addWidget(self.option2, 1, 0)
         sync_options_grid.addWidget(self.option3, 2, 0)
-        sync_options_grid.addWidget(self.option4, 0, 2)
-        sync_options_grid.addWidget(self.option5, 1, 2)
-        sync_options_grid.addWidget(self.option6, 2, 2)
-        sync_options_grid.addWidget(self.option7, 3, 0)
-        sync_options_grid.addWidget(self.custom_local_path_src, 4, 0)
-        sync_options_grid.addWidget(self.custom_local_path_src_button, 4, 1)
-        sync_options_grid.addWidget(self.custom_local_path_dst, 4, 2)
-        sync_options_grid.addWidget(self.custom_local_path_dst_button, 4, 3)
-        sync_options_grid.addWidget(self.option8, 5, 0)
-        sync_options_grid.addWidget(self.custom_remote_path_src, 6, 0)
-        sync_options_grid.addWidget(self.custom_remote_path_src_button, 6, 1)
-        sync_options_grid.addWidget(self.custom_remote_path_dst, 6, 2)
-        sync_options_grid.addWidget(self.custom_remote_path_dst_button, 6, 3)
+        sync_options_grid.addWidget(self.option4, 0, 1)
+        sync_options_grid.addWidget(self.option5, 1, 1)
+        sync_options_grid.addWidget(self.option6, 2, 1)
+
+        tab1 = QWidget()
+        tab1_layout = QGridLayout()
+        tab1_layout.setAlignment(Qt.AlignLeft)
+        tab1_layout.addWidget(self.option7, 0, 0)
+        tab1_layout.addWidget(self.custom_local_path_src, 1, 0)
+        tab1_layout.addWidget(self.custom_local_path_src_button, 1, 1)
+        tab1_layout.addWidget(self.custom_local_path_dst, 2, 0)
+        tab1_layout.addWidget(self.custom_local_path_dst_button, 2, 1)
+        tab1.setLayout(tab1_layout)
+
+        tab2 = QWidget()
+        tab2_layout = QGridLayout()
+        tab2_layout.setAlignment(Qt.AlignLeft)
+        tab2_layout.addWidget(self.option8, 0, 0)
+        tab2_layout.addWidget(self.custom_remote_path_src, 1, 0)
+        tab2_layout.addWidget(self.custom_remote_path_src_button, 1, 1)
+        tab2_layout.addWidget(self.custom_remote_path_dst, 2, 0)
+        tab2_layout.addWidget(self.custom_remote_path_dst_button, 2, 1)
+        tab2.setLayout(tab2_layout)
+
+        self.custom_sync_tab.addTab(tab1, "Local")
+        self.custom_sync_tab.addTab(tab2, "Remote")
+
+        sync_hoz = QHBoxLayout()
+        sync_hoz.setContentsMargins(20, 10, 20, 10)
+        sync_hoz.setSpacing(10)
+        sync_hoz.addLayout(sync_options_grid)
+        sync_hoz.addWidget(self.custom_sync_tab)
 
         # ride side of bottom buttons
         clear_buttons = QVBoxLayout()
@@ -494,12 +523,11 @@ class Window(QWidget):
         v_box_left = QVBoxLayout()
         v_box_left.addLayout(top_row1)
         v_box_left.addSpacing(10)
-        #v_box_left.addLayout(top_row3)
         v_box_left.addLayout(destination_grid)
         v_box_left.addWidget(self.system_label_flag_options)
         v_box_left.addLayout(flag_options_grid)
         v_box_left.addWidget(self.system_label_sync_options)
-        v_box_left.addLayout(sync_options_grid)
+        v_box_left.addLayout(sync_hoz)
         v_box_left.addStretch(1)
         v_box_left.addWidget(self.loading_bar)
         v_box_left.addLayout(h_box_buttons)
