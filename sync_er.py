@@ -25,7 +25,7 @@ from My_Modules.Colourize import Colourize
 '''
 
 __author__ = "blaka90"
-__version__ = "0.8.6"
+__version__ = "0.8.7"
 
 
 # the main window
@@ -947,6 +947,7 @@ class Window(QWidget):
 
     # resets all settings and user input/options when clear setting button is pressed
     def clear_settings(self):
+        self.os_radio_group.setExclusive(False)
         self.output_display.setText("")
         self.dest_user_input.setText("")
         self.dest_ip_input.setText("")
@@ -979,6 +980,7 @@ class Window(QWidget):
         self.custom_remote_dest_path = ""
         self.any_errors = False
         self.sync_button.setStyleSheet("font-size: 20px; color: black")
+        self.os_radio_group.setExclusive(True)
         if self.operating_system == "linux":
             self.rsync_button.setChecked(True)
             self.rsync_command()
