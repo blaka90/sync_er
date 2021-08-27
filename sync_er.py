@@ -43,7 +43,6 @@ class Window(QWidget):
         self.operating_system = ""
         self.dest_operating_system = ""
         self.avail_user_box_list = []
-        self.check_for_saved_ips()
         self.get_os()
         self.init_ui()
         self.options = None
@@ -201,6 +200,10 @@ class Window(QWidget):
 
         """left side of gui"""
 
+        # should have used QMainWindow but am here now -_-
+        # This should be at the bottom but doesn't play nice with self.check_for_saved_ips()
+        self.statusbar = QStatusBar(self)
+
         # label for showing the users username
         self.user_and_ip_label = QLabel(self)
         self.user_and_ip_label.setText("Username: " + self.user + "\n" + "IP Address: " + self.user_ip)
@@ -243,6 +246,7 @@ class Window(QWidget):
         self.dest_user_input.setPlaceholderText("Username of other computer")
 
         # connected users available
+        self.check_for_saved_ips()
         self.avail_user_box = QListWidget()
         self.avail_user_box.setFixedHeight(120)
         self.avail_user_box.setFixedWidth(120)
@@ -425,9 +429,6 @@ class Window(QWidget):
         self.clear_display_button.setFixedHeight(30)
         # self.clear_display_button.setStyleSheet("background-color: blue; color: black")
 
-        # should have used QMainWindow but am here now -_-
-        self.statusbar = QStatusBar(self)
-
         """start of layouts"""
 
         # layout for left top row
@@ -571,13 +572,15 @@ class Window(QWidget):
             f.writelines(line for line in lines if line.strip())
             f.truncate()
             f.close()
-
-            num_lines = len(lines)
-            if num_lines == 0:
-                self.show_info_color("red", "No users seem to be added?", 5000)
             for line in lines:
                 u_data = line.split()
                 self.avail_user_box_list.append(u_data[0])
+            num_lines = len(lines)
+            if num_lines == 0:
+                try:
+                    self.show_info_color("red", "No users seem to be added?", 5000)
+                except Exception as e:
+                    print(e)
 
     def run_checks(self):
         if self.dest_user_input.text() == "":
@@ -618,11 +621,12 @@ class Window(QWidget):
         self.get_sync_info()
         self.run_checks()
         pex_pass = self.ask_for_password()
+        ssh_path = self.return_ssh_path()
 
         path_pub = self.ssh_path + "id_rsa.pub"
         path_priv = self.ssh_path + "id_rsa"
         known_hosts = self.ssh_path + "known_hosts"
-        auth_keys = self.return_ssh_path() + "authorized_keys"
+        auth_keys = ssh_path + "authorized_keys"
 
         if not os.path.isfile(known_hosts):
             f = open(known_hosts, "a+")
@@ -663,6 +667,12 @@ class Window(QWidget):
             self.show_info_color("red", "Failed to Transfer ssh keys!", 5000)
         self.update_saved_ips()
 
+    def update_avail_list(self):
+        num = 0
+        for h in self.avail_user_box_list:
+            self.avail_user_box.insertItem(num, h)
+            num += 1
+
     def update_saved_ips(self):
         to_save = self.dest_user + " " + self.dest_ip + " " + self.dest_operating_system + "\n"
         if self.append:
@@ -685,6 +695,8 @@ class Window(QWidget):
                         f.write(line)
                 f.close()
                 self.show_info_color("green", "Updated saved user data!", 5000)
+        self.find_ips()
+        self.update_avail_list()
 
     def update_known_hosts(self, kh):
         ip = ""
